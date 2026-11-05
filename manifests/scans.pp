@@ -87,6 +87,8 @@ class openvas::scans {
     path      => $exec_path,
     tries     => 3,
     try_sleep => 20,
+    timeout   => 900,
+    logoutput => true,
     require   => [File[$wrapper], $gmp_config_ref],
   }
 

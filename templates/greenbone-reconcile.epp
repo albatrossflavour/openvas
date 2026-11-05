@@ -14,11 +14,15 @@
 # auth exits 0 when the admin password in the config still logs in to gvmd, and
 # changes nothing in gvmd. The first success records that gvmd has come up.
 #
-# set-password resets the admin password to the one in the config.
+# set-password resets the admin password to the one in the config, and proves it
+# logs in. gvmd creates the admin user a while after its container starts, so
+# until gvmd has come up once it retries for a few minutes.
 #
 # Until gvmd has come up once, check, apply, and set-password print that they're
 # waiting and exit 0, because a first install takes a long time and that isn't a
-# failure. After that, a gvmd that can't be reached fails the Puppet run.
+# failure. After that, or a day after the compose file was written, set-password
+# fails the Puppet run, so a stack that never comes up doesn't stay green with
+# the image's known admin password.
 #
 # idle is a systemd ExecCondition for the stack's update timers: it exits 1,
 # which skips the update, only when gvmd says a scan is running. When gvmd can't
@@ -68,11 +72,26 @@ if [ "$mode" = set-password ]; then
   # Written with % doubled for gvm-tools' ConfigParser.
   password="$(sed -n 's/^password = //p' "$gmp_config")"
   password="${password//%%/%}"
-  if docker compose -f "$compose_file" exec -T -u gvmd gvmd gvmd --user=admin "--new-password=$password"; then
-    exit 0
+  reset() {
+    docker compose -f "$compose_file" exec -T -u gvmd gvmd gvmd --user=admin "--new-password=$password"
+  }
+  if [ -e "$ready_marker" ]; then
+    reset
+    try_auth
+    exit
   fi
-  [ -e "$ready_marker" ] && exit 1
-  echo "waiting: gvmd can't accept a password yet"
+  for attempt in 1 2 3 4 5 6 7 8 9 10 11 12; do
+    if reset 2>/dev/null && try_auth; then
+      echo "admin password set"
+      exit 0
+    fi
+    echo "waiting: gvmd can't accept the admin password yet (attempt $attempt of 12)"
+    sleep 20
+  done
+  if [ -n "$(find "$compose_file" -mmin +1440 2>/dev/null)" ]; then
+    echo "gvmd has not accepted the admin password in a day since $compose_file was written" >&2
+    exit 1
+  fi
   exit 0
 fi
 

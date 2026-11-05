@@ -13,7 +13,12 @@ printf '%s\\0' "$@" >> "$STUB_LOG"
 printf '\\n' >> "$STUB_LOG"
 case "$*" in
   *gvm-cli*) exit "${STUB_AUTH_RC:-0}" ;;
-  *--new-password=*) exit "${STUB_RESET_RC:-0}" ;;
+  *--new-password=*)
+    count=$(cat "$STUB_LOG.resets" 2>/dev/null || echo 0)
+    echo $((count + 1)) > "$STUB_LOG.resets"
+    [ "$count" -lt "${STUB_RESET_FAILS:-0}" ] && exit 1
+    exit "${STUB_RESET_RC:-0}"
+    ;;
   *gvm-script*) echo "script ran"; exit "${STUB_SCRIPT_RC:-0}" ;;
 esac
 """
@@ -26,6 +31,9 @@ def box(tmp_path):
     docker = bin_dir / "docker"
     docker.write_text(STUB)
     docker.chmod(docker.stat().st_mode | stat.S_IEXEC)
+    sleeper = bin_dir / "sleep"
+    sleeper.write_text("#!/bin/sh\nexit 0\n")
+    sleeper.chmod(0o755)
     paths = {"compose_file": tmp_path / "compose.yaml", "gmp_config": tmp_path / "gvm-admin.conf",
              "state_file": tmp_path / "scan-state.json", "script": tmp_path / "reconcile.gmp.py",
              "ready_marker": tmp_path / ".gvmd-ready"}
@@ -37,10 +45,12 @@ def box(tmp_path):
     wrapper.chmod(0o750)
     paths["gmp_config"].write_text("[gmp]\nusername = admin\npassword = secret\n")
     paths["state_file"].write_text("{}")
+    paths["compose_file"].write_text("name: x\n")
 
     def run(mode, **env):
         log = tmp_path / "log"
         log.write_text("")
+        (tmp_path / "log.resets").unlink(missing_ok=True)
         result = subprocess.run([str(wrapper), mode], capture_output=True, text=True,
                                 env={**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "STUB_LOG": str(log),
                                      **{k: str(v) for k, v in env.items()}})
@@ -83,6 +93,39 @@ def test_fails_after_first_login_when_gvmd_breaks(box, mode):
 def test_set_password_fails_after_first_login(box):
     box.paths["ready_marker"].write_text("")
     assert box("set-password", STUB_RESET_RC=1).returncode != 0
+
+
+def test_first_reset_retries_until_gvmd_accepts_it(box):
+    result = box("set-password", STUB_RESET_FAILS=3)
+    assert result.returncode == 0
+    assert result.calls.count("--new-password=") == 4
+    assert box.paths["ready_marker"].exists()
+
+
+def test_first_reset_says_when_it_is_waiting(box):
+    result = box("set-password", STUB_RESET_RC=1)
+    assert "waiting" in result.stdout
+
+
+def test_reset_that_does_not_log_in_keeps_waiting(box):
+    result = box("set-password", STUB_AUTH_RC=1)
+    assert result.returncode == 0
+    assert "waiting" in result.stdout
+    assert not box.paths["ready_marker"].exists()
+
+
+@pytest.mark.parametrize("env", [{"STUB_RESET_RC": 1}, {"STUB_AUTH_RC": 1}])
+def test_gives_up_waiting_after_a_day(box, env):
+    old = 25 * 3600
+    now = os.path.getmtime(box.paths["compose_file"])
+    os.utime(box.paths["compose_file"], (now - old, now - old))
+    assert box("set-password", **env).returncode != 0
+
+
+def test_set_password_does_not_retry_after_first_login(box):
+    box.paths["ready_marker"].write_text("")
+    result = box("set-password", STUB_RESET_RC=1)
+    assert result.calls.count("--new-password=") == 1
 
 
 def test_auth_success_records_first_login(box):

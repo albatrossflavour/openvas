@@ -36,7 +36,9 @@ The first runs default to Saturday, 16:00 UTC for RedHat, 18:00 for Debian, 20:0
 
 The first agent run blocks while images download. After that, gvmd spends a long time importing feeds, up to a few hours.
 
-Agent runs stay green during that time. Until gvmd has answered once, the reconciler prints `waiting` or `deferred` and changes nothing. Once gvmd has come up, a gvmd that can't be reached fails the agent run.
+Agent runs stay green during that time. Until gvmd has answered once, the reconciler prints `waiting` or `deferred` and changes nothing, and the image's default admin password stays live, so keep `web_bind_address` on localhost until then if the network isn't trusted. If gvmd hasn't accepted the admin password a day after the compose file was written, the agent run fails. Once gvmd has come up, a gvmd that can't be reached fails the agent run.
+
+Puppet's default `runtimeout` is one hour. If the first run hits it, the next run carries on from where the images got to.
 
 ## The admin password
 

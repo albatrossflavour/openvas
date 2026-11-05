@@ -37,6 +37,10 @@ describe 'openvas' do
                                                                        'unless' => '/usr/local/sbin/greenbone-reconcile auth')
         end
 
+        it 'shows what the password reset did, with time for its retries' do
+          is_expected.to contain_exec('greenbone-admin-password').with('logoutput' => true, 'timeout' => 900)
+        end
+
         it 'has no schedules and no purge, and no min_hosts' do
           expect(state['schedules']).to eq([])
           expect(state['purge']).to be(false)
