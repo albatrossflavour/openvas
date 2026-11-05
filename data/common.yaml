@@ -1,0 +1,10 @@
+---
+lookup_options:
+  openvas::admin_password:
+    convert_to: "Sensitive"
+  openvas::scan_ssh_private_key:
+    convert_to: "Sensitive"
+  openvas::scan_windows_password:
+    convert_to: "Sensitive"
+  openvas::scan_observer_password:
+    convert_to: "Sensitive"

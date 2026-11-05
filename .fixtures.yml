@@ -1,0 +1,33 @@
+---
+fixtures:
+  forge_modules:
+    stdlib:
+      repo: "puppetlabs/stdlib"
+      ref: "10.1.0"
+    docker:
+      repo: "puppetlabs/docker"
+      ref: "10.3.0"
+    systemd:
+      repo: "puppet/systemd"
+      ref: "11.0.0"
+    logrotate:
+      repo: "puppet/logrotate"
+      ref: "8.0.0"
+    node_encrypt:
+      repo: "puppetlabs/node_encrypt"
+      ref: "3.1.0"
+    apt:
+      repo: "puppetlabs/apt"
+      ref: "11.1.0"
+    powershell:
+      repo: "puppetlabs/powershell"
+      ref: "6.0.2"
+    reboot:
+      repo: "puppetlabs/reboot"
+      ref: "5.1.0"
+    translate:
+      repo: "puppetlabs/translate"
+      ref: "2.2.0"
+    inifile:
+      repo: "puppetlabs/inifile"
+      ref: "6.2.0"
