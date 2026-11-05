@@ -153,6 +153,33 @@ def test_schedule_off_is_stable_once_cleared(tmp_path):
     assert code == 0, out
 
 
+def test_schedule_removed_by_hand_is_repointed_in_one_run(tmp_path):
+    path = state(tmp_path)
+    first = FakeGvmd()
+    run("apply", path, first)
+    comment = re.search(r"<comment>(.*?)</comment>", next(w for w in first.writes if w.startswith("<create_task"))).group(1)
+    create = next(w for w in first.writes if w.startswith("<create_target"))
+    name = re.search(r"<name>(.*?)</name>", create).group(1)
+    target_comment = re.search(r"<comment>(.*?)</comment>", create).group(1)
+    gvmd = FakeGvmd(tasks=f'<task id="t1"><name>Puppet: Debian</name><comment>{comment}</comment><status>Done</status>'
+                          f'<target id="x1"/><schedule id=""/>'
+                          '<preferences><preference><scanner_name>max_checks</scanner_name><value>4</value></preference>'
+                          '<preference><scanner_name>max_hosts</scanner_name><value>20</value></preference></preferences></task>')
+    original = gvmd.send_command
+
+    def with_target(xml):
+        if xml.startswith("<get_targets"):
+            return f'<r status="200"><target id="x1"><name>{name}</name><comment>{target_comment}</comment></target></r>'
+        return original(xml)
+
+    gvmd.send_command = with_target
+    code, _ = run("apply", path, gvmd)
+    assert code == 0
+    verbs = [re.match(r"<(\w+)", w).group(1) for w in gvmd.writes]
+    assert verbs.index("create_schedule") < verbs.index("modify_task")
+    assert '<schedule id="new-id"/>' in next(w for w in gvmd.writes if w.startswith("<modify_task"))
+
+
 def test_idle_needs_no_state_file(tmp_path):
     code, out = run("idle", str(tmp_path / "missing.json"), FakeGvmd())
     assert code == 0

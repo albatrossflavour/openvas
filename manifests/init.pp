@@ -15,16 +15,18 @@
 #   }
 #
 # @param install_dir
-#   Directory holding compose.yaml and the reconciler's files.
+#   Directory holding compose.yaml and the reconciler's files. Letters, digits,
+#   dots, dashes, underscores, and slashes only, as it ends up in shell commands.
 # @param feed_release
 #   Vulnerability feed release tracked by the data containers.
 # @param web_bind_address
-#   Host address the web UI binds to, on ports 443 and 9392.
+#   IPv4 host address the web UI binds to, on ports 443 and 9392.
 # @param manage_docker
 #   Whether this module installs Docker through the `docker` class.
 # @param admin_password
 #   Password for the `admin` user. When unset, one is generated on the node and
-#   kept in `gvm-admin.conf` in `install_dir`, root only.
+#   kept in `gvm-admin.conf` in `install_dir`, root only. It can't start or end
+#   with whitespace, which gvm-tools strips when it reads the file.
 # @param scan_ssh_private_key
 #   Private key for credentialed scans of Linux hosts. Unset means those hosts
 #   are scanned without logging in, which finds much less.
@@ -54,9 +56,9 @@
 # @param scan_observer_password
 #   That user's password. The user is only created when both are set.
 class openvas (
-  Stdlib::Absolutepath           $install_dir            = '/opt/greenbone-community-container',
+  Pattern[/\A\/[\w.\/-]+\z/]     $install_dir            = '/opt/greenbone-community-container',
   String[1]                      $feed_release           = '24.10',
-  Stdlib::IP::Address            $web_bind_address       = '127.0.0.1',
+  Stdlib::IP::Address::V4::Nosubnet $web_bind_address    = '127.0.0.1',
   Boolean                        $manage_docker          = true,
   Optional[Sensitive[String[1]]] $admin_password         = undef,
   Optional[Sensitive[String[1]]] $scan_ssh_private_key   = undef,
@@ -76,6 +78,10 @@ class openvas (
   Optional[String[1]]            $scan_observer_user     = undef,
   Optional[Sensitive[String[1]]] $scan_observer_password = undef,
 ) {
+  if $admin_password =~ NotUndef and $admin_password.unwrap =~ /\A\s|\s\z/ {
+    fail('openvas: admin_password cannot start or end with whitespace, because gvm-tools strips it and the login would never work')
+  }
+
   contain openvas::install
   contain openvas::config
   contain openvas::service
@@ -83,6 +89,6 @@ class openvas (
 
   Class['openvas::install']
   -> Class['openvas::config']
-  ~> Class['openvas::service']
+  -> Class['openvas::service']
   -> Class['openvas::scans']
 }

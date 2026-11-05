@@ -236,7 +236,8 @@ def main(mode, state_path):
         if ids["target"][k["target"]] != target_now:
             changes.append("target")
         # gvmd reports a task with no schedule as an empty id.
-        if (schedule_id(k) or "") != schedule_now:
+        # A schedule still to be created has no id yet, but still needs pointing at.
+        if (schedule_id(k) or "") != schedule_now or (k.get("schedule") and schedule_id(k) is None):
             changes.append("schedule")
         if any(current_prefs.get(n) != v for n, v in prefs.items()):
             changes.append("preferences")

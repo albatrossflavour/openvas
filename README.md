@@ -12,7 +12,9 @@ On a clean agent, with no Hiera data:
 - Creates one scan target and one task per OS family, from the active nodes in PuppetDB
 - Pulls feed updates daily and stack images weekly, and skips either while a scan is running
 
-The web UI listens on `https://127.0.0.1:443`. Set `openvas::web_bind_address` to reach it from elsewhere.
+The web UI listens on `https://127.0.0.1:443`. Set `openvas::web_bind_address` to an IPv4 address to reach it from elsewhere.
+
+`examples/` has both ways of declaring it.
 
 ## Scans are off by default
 
@@ -56,7 +58,9 @@ To choose your own, set it with eyaml:
 openvas::admin_password: ENC[PKCS7,...]
 ```
 
-If somebody changes the password in the web UI, Puppet puts it back on the next run. In either case, `%` appears as `%%` in that file.
+If somebody changes the password in the web UI, Puppet puts it back on the next run. In either case, `%` appears as `%%` in that file. A password can't start or end with whitespace, and the catalogue fails to compile if it does.
+
+If you unset `openvas::admin_password` later, the file Puppet wrote stays in place and keeps its password.
 
 ## Credentialed scans
 
@@ -93,6 +97,36 @@ This prints what the reconciler would change, and changes nothing. No output mea
 
 `scan-hosts.json` in the install directory maps each scanned address to its certname, since gvmd only knows addresses. An address claimed by more than one certname is left out.
 
+## Removing it
+
+Removing the class leaves everything in place, because deleting scan data should be a decision. To remove the stack by hand:
+
+```sh
+sudo systemctl disable --now greenbone-stack.service greenbone-feed-update.timer greenbone-image-update.timer
+sudo docker compose -f /opt/greenbone-community-container/compose.yaml down --volumes
+sudo rm -rf /opt/greenbone-community-container /usr/local/sbin/greenbone-reconcile
+```
+
+`--volumes` deletes every report.
+
+## Limitations
+
+- Ubuntu 24.04 only, and IPv4 only for the web UI
+- One target and one task per OS family, with the `Full and fast` scan config and the `All IANA assigned TCP` port list
+- Each node is scanned at its primary address, from the `networking.ip` fact. A node whose primary address the scanner can't reach still appears, and comes back with nothing found, so use `openvas::scan_exclude` for those
+- The images track Greenbone's `stable` and `latest` tags and update weekly, so a Greenbone release reaches you without a module release
+- The module has been run for real on one estate. It has no Litmus acceptance tests, because the stack needs tens of GB of feed data and privileged containers
+
+## Development
+
+```sh
+pdk validate
+pdk test unit
+uvx pytest spec/python
+```
+
+The Python tests cover the reconciler against a fake gvmd, and the wrapper against a stub `docker`. Neither needs Docker. `pdk test unit` fails below 100% resource coverage.
+
 ## Names
 
 Units, the wrapper, and the compose project are named `greenbone-*`, after the product, even though the module is named for the scanner.
@@ -101,4 +135,4 @@ See `REFERENCE.md` for every parameter.
 
 ## Licence
 
-Apache-2.0, except where `NOTICE` says otherwise.
+Apache-2.0, except `templates/compose.yaml.epp`. That file is adapted from Greenbone's, and stays CC-BY-SA-4.0, as `LICENSE-compose` explains.

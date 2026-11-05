@@ -45,5 +45,15 @@
   "template-url": "https://github.com/puppetlabs/pdk-templates#main",
   "template-ref": "heads/main-0-g8ca954f",
   "project_page": "https://github.com/albatrossflavour/openvas",
-  "issues_url": "https://github.com/albatrossflavour/openvas/issues"
+  "issues_url": "https://github.com/albatrossflavour/openvas/issues",
+  "tags": [
+    "greenbone",
+    "openvas",
+    "gvm",
+    "vulnerability",
+    "scanner",
+    "security",
+    "docker",
+    "compose"
+  ]
 }

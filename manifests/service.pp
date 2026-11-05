@@ -13,6 +13,7 @@ class openvas::service {
     path        => ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin'],
     timeout     => 0,
     refreshonly => true,
+    subscribe   => File["${install_dir}/compose.yaml"],
   }
 
   # Only some services carry a restart policy, so without this most of the stack

@@ -16,10 +16,15 @@ describe 'openvas' do
       context 'with a bare include' do
         it { is_expected.to compile.with_all_deps }
         it { is_expected.to contain_class('docker') }
+        it { is_expected.to contain_class('openvas::install') }
+        it { is_expected.to contain_class('openvas::service') }
+        it { is_expected.to contain_class('openvas::scans') }
+        it { is_expected.to contain_file('/opt/greenbone-community-container').with('ensure' => 'directory', 'mode' => '0750') }
         it { is_expected.to contain_package('docker-compose-plugin') }
         it { is_expected.to contain_file(compose).with_content(%r{- 127\.0\.0\.1:443:443$}) }
         it { is_expected.to contain_file(compose).with_content(%r{FEED_RELEASE: "24\.10"}) }
         it { is_expected.to contain_file(compose).with_content(%r{^name: greenbone-community-edition$}) }
+        it { is_expected.to contain_file(compose).with_content(%r{CC-BY-SA-4\.0}) }
         it { is_expected.to contain_file(compose).that_notifies('Exec[greenbone-compose-up]') }
         it { is_expected.to contain_exec('greenbone-compose-up').with_refreshonly(true) }
         it { is_expected.to contain_systemd__unit_file('greenbone-stack.service').with('active' => true, 'enable' => true) }
@@ -40,6 +45,25 @@ describe 'openvas' do
 
         it { is_expected.to compile.with_all_deps }
         it { is_expected.not_to contain_class('docker') }
+      end
+
+      ['10.0.0.0/8', '::1'].each do |address|
+        context "with web_bind_address #{address}, which compose can't publish" do
+          let(:params) { { 'web_bind_address' => address } }
+
+          it { is_expected.to compile.and_raise_error(%r{web_bind_address}) }
+        end
+      end
+
+      context 'with an install_dir the wrapper could not quote' do
+        let(:params) { { 'install_dir' => '/opt/green bone' } }
+
+        it { is_expected.to compile.and_raise_error(%r{install_dir}) }
+      end
+
+      context 'when only the compose file changes' do
+        it { is_expected.not_to contain_class('openvas::config').that_notifies('Class[openvas::service]') }
+        it { is_expected.to contain_class('openvas::config').that_comes_before('Class[openvas::service]') }
       end
 
       context 'with a web_bind_address that is not an address' do

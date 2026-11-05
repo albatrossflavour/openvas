@@ -29,8 +29,11 @@ describe 'openvas' do
         it { is_expected.to contain_exec('greenbone-reconcile').with_command('/usr/local/sbin/greenbone-reconcile apply') }
         it { is_expected.to contain_exec('greenbone-admin-generate').with_creates("#{dir}/gvm-admin.conf") }
         it { is_expected.not_to contain_file("#{dir}/gvm-admin.conf") }
+        it { is_expected.to contain_exec('greenbone-admin-generate').with_command(%r{pw="\$\(openssl rand -hex 24\)" && }) }
         it { is_expected.to contain_file('/usr/local/sbin/greenbone-reconcile').with_mode('0750') }
         it { is_expected.to contain_file("#{dir}/scan-state.json").with_mode('0600') }
+        it { is_expected.to contain_file("#{dir}/scan-hosts.json").with_mode('0644') }
+        it { is_expected.to contain_file("#{dir}/reconcile.gmp.py").with_source('puppet:///modules/openvas/reconcile.gmp.py') }
 
         it 'keeps the password out of the catalogue' do
           is_expected.to contain_exec('greenbone-admin-password').with('command' => '/usr/local/sbin/greenbone-reconcile set-password',
@@ -82,6 +85,30 @@ describe 'openvas' do
           it { is_expected.not_to contain_file("#{dir}/scan-state.json") }
           it { is_expected.to contain_exec('greenbone-admin-generate') }
           it { is_expected.to contain_exec('greenbone-admin-password') }
+        end
+      end
+
+      context 'when a row has no OS family' do
+        let(:rows) do
+          [
+            { 'certname' => 'a.example.com', 'facts.networking.ip' => '192.0.2.1', 'facts.os.family' => 'Debian' },
+            { 'certname' => 'b.example.com', 'facts.networking.ip' => '192.0.2.2', 'facts.os.family' => nil },
+          ]
+        end
+        let(:puppetdb_answer) { rows.inspect.gsub('nil', 'undef') }
+
+        it { is_expected.to compile.with_all_deps }
+
+        it 'leaves that host out' do
+          expect(state['targets'].map { |t| t['hosts'] }).to eq([['192.0.2.1']])
+        end
+      end
+
+      [' lead', 'trail ', "tab\t"].each do |password|
+        context "with an admin password #{password.inspect}, which gvm-tools would strip" do
+          let(:params) { { 'admin_password' => sensitive(password) } }
+
+          it { is_expected.to compile.and_raise_error(%r{admin_password}) }
         end
       end
 

@@ -57,7 +57,7 @@ class openvas::scans {
   # never enters the catalogue.
   if $admin_password =~ Undef {
     exec { 'greenbone-admin-generate':
-      command  => "umask 077; printf '[gmp]\\nusername = admin\\npassword = %s\\n' \"$(openssl rand -hex 24)\" > ${gmp_config}",
+      command  => "pw=\"$(openssl rand -hex 24)\" && umask 077 && printf '[gmp]\\nusername = admin\\npassword = %s\\n' \"\$pw\" > ${gmp_config}",
       creates  => $gmp_config,
       path     => $exec_path,
       provider => 'shell',
@@ -93,10 +93,12 @@ class openvas::scans {
   }
 
   # Every active node's primary address and OS family. Anything but an Array
-  # counts as no data.
+  # counts as no data, and a node missing either can't be placed in a target.
   $rows = openvas::puppetdb_rows('inventory[certname, facts.networking.ip, facts.os.family] { node_state = "active" }')
   $nodes = $rows ? {
-    Array   => $rows.filter |$r| { $r['facts.networking.ip'] =~ String[1] and !($r['certname'] in $openvas::scan_exclude) },
+    Array   => $rows.filter |$r| {
+      $r['facts.networking.ip'] =~ String[1] and $r['facts.os.family'] =~ String[1] and !($r['certname'] in $openvas::scan_exclude)
+    },
     default => [],
   }
 

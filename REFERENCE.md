@@ -94,9 +94,10 @@ The following parameters are available in the `openvas` class:
 
 ##### <a name="-openvas--install_dir"></a>`install_dir`
 
-Data type: `Stdlib::Absolutepath`
+Data type: `Pattern[/\A\/[\w.\/-]+\z/]`
 
-Directory holding compose.yaml and the reconciler's files.
+Directory holding compose.yaml and the reconciler's files. Letters, digits,
+dots, dashes, underscores, and slashes only, as it ends up in shell commands.
 
 Default value: `'/opt/greenbone-community-container'`
 
@@ -110,9 +111,9 @@ Default value: `'24.10'`
 
 ##### <a name="-openvas--web_bind_address"></a>`web_bind_address`
 
-Data type: `Stdlib::IP::Address`
+Data type: `Stdlib::IP::Address::V4::Nosubnet`
 
-Host address the web UI binds to, on ports 443 and 9392.
+IPv4 host address the web UI binds to, on ports 443 and 9392.
 
 Default value: `'127.0.0.1'`
 
@@ -129,7 +130,8 @@ Default value: `true`
 Data type: `Optional[Sensitive[String[1]]]`
 
 Password for the `admin` user. When unset, one is generated on the node and
-kept in `gvm-admin.conf` in `install_dir`, root only.
+kept in `gvm-admin.conf` in `install_dir`, root only. It can't start or end
+with whitespace, which gvm-tools strips when it reads the file.
 
 Default value: `undef`
 
