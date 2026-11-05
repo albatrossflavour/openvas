@@ -75,6 +75,50 @@ These log in as the account named by `openvas::scan_login`, which defaults to `o
 
 Both are forced to `Sensitive` by the module's own `lookup_options`.
 
+There is no separate switch for authenticated scanning. Set a key and the Linux targets log in over SSH, set a password and the Windows target logs in over SMB, and leave either unset to scan that family from the outside.
+
+### Making the SSH key
+
+The module has no passphrase setting, so make the key without one:
+
+```sh
+ssh-keygen -t rsa -b 4096 -N '' -C openvas-scan -f openvas_scan
+eyaml encrypt -l openvas::scan_ssh_private_key -f openvas_scan
+```
+
+Put the eyaml output in your Hiera, keep `openvas_scan.pub` for the nodes, and delete the private key file once it's encrypted.
+
+### Adding the scan account to the nodes
+
+On every Linux node you scan. The account needs no sudo, because the local checks read package lists any user can read.
+
+```puppet
+user { 'openvas':
+  ensure     => present,
+  managehome => true,
+  shell      => '/bin/bash',
+}
+
+ssh_authorized_key { 'openvas-scan':
+  ensure => present,
+  user   => 'openvas',
+  type   => 'ssh-rsa',
+  key    => 'AAAAB3Nza...', # the middle field of openvas_scan.pub
+}
+```
+
+On Windows nodes, with the same password as `openvas::scan_windows_password`:
+
+```puppet
+user { 'openvas':
+  ensure   => present,
+  password => Sensitive('the scan password'),
+  groups   => ['Administrators'],
+}
+```
+
+A local administrator logging in over the network gets a filtered token unless `LocalAccountTokenFilterPolicy` is 1 under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`. Without it the scan logs in but can't read the registry, so most Windows checks don't run.
+
 ## Purge
 
 `openvas::scan_purge` is off by default. Turn it on and everything in gvmd this module did not create is removed, including hand-made tasks and their reports, targets, schedules, credentials, alerts, overrides, notes, and filters. Feed objects (scan configs, port lists) are left alone.
