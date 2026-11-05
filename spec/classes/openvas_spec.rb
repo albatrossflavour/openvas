@@ -7,6 +7,11 @@ describe 'openvas' do
     context "on #{os}" do
       let(:facts) { os_facts }
       let(:compose) { '/opt/greenbone-community-container/compose.yaml' }
+      let(:pre_condition) do
+        <<~PP
+          function node_encrypt::secret($data) { $data }
+        PP
+      end
 
       context 'with a bare include' do
         it { is_expected.to compile.with_all_deps }

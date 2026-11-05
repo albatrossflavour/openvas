@@ -1,0 +1,110 @@
+<%- |
+  String[1] $compose_file,
+  String[1] $gmp_config,
+  String[1] $state_file,
+  String[1] $script,
+  String[1] $ready_marker,
+| -%>
+#!/bin/bash
+# Managed by Puppet (openvas) - do not edit by hand.
+#
+# Converge gvmd to the state file. Usage:
+#   greenbone-reconcile check|apply|plan|auth|idle|set-password
+#
+# auth exits 0 when the admin password in the config still logs in to gvmd, and
+# changes nothing in gvmd. The first success records that gvmd has come up.
+#
+# set-password resets the admin password to the one in the config.
+#
+# Until gvmd has come up once, check, apply, and set-password print that they're
+# waiting and exit 0, because a first install takes a long time and that isn't a
+# failure. After that, a gvmd that can't be reached fails the Puppet run.
+#
+# idle is a systemd ExecCondition for the stack's update timers: it exits 1,
+# which skips the update, only when gvmd says a scan is running. When gvmd can't
+# be asked it exits 0, because an update that never runs while gvmd is broken
+# would also never deliver the image that fixes it.
+#
+# --no-deps so this never starts or restarts the stack, and the root-only config
+# and state are copied into the throwaway container for gvm, because gvm-cli and
+# gvm-script refuse to run as root. pipefail so the exit status is the
+# reconciler's (check exits 3 when apply has work to do), not the output filter's.
+set -euo pipefail
+mode="${1:-}"
+case "$mode" in
+  check|apply|plan|auth|idle|set-password) ;;
+  *) echo "usage: $0 check|apply|plan|auth|idle|set-password" >&2; exit 64 ;;
+esac
+
+compose_file=<%= $compose_file %>
+gmp_config=<%= $gmp_config %>
+state_file=<%= $state_file %>
+script=<%= $script %>
+ready_marker=<%= $ready_marker %>
+
+# Docker creates a missing bind source as a directory, which would then stop the
+# real file ever being written, so nothing is mounted until it exists.
+if [ ! -f "$gmp_config" ]; then
+  echo "waiting: $gmp_config does not exist yet"
+  [ "$mode" = auth ] && exit 1
+  exit 0
+fi
+
+try_auth() {
+  docker compose -f "$compose_file" run --rm --no-deps -T --entrypoint sh \
+    -v "$gmp_config:/run/secrets/gvm-tools.conf:ro" \
+    gvm-tools -c 'install -o gvm -g gvm -m 0400 /run/secrets/gvm-tools.conf /tmp/gvm-tools.conf \
+      && exec gosu gvm gvm-cli --config /tmp/gvm-tools.conf socket --socketpath /run/gvmd/gvmd.sock --xml "<get_users/>"' \
+    >/dev/null 2>&1 || return 1
+  touch "$ready_marker"
+}
+
+if [ "$mode" = auth ]; then
+  try_auth
+  exit
+fi
+
+if [ "$mode" = set-password ]; then
+  # Written with % doubled for gvm-tools' ConfigParser.
+  password="$(sed -n 's/^password = //p' "$gmp_config")"
+  password="${password//%%/%}"
+  if docker compose -f "$compose_file" exec -T -u gvmd gvmd gvmd --user=admin "--new-password=$password"; then
+    exit 0
+  fi
+  [ -e "$ready_marker" ] && exit 1
+  echo "waiting: gvmd can't accept a password yet"
+  exit 0
+fi
+
+mounts=(-v "$gmp_config:/run/secrets/gvm-tools.conf:ro" -v "$script:/opt/reconcile.gmp.py:ro")
+copy_state=':'
+if [ "$mode" != idle ]; then
+  if [ ! -f "$state_file" ]; then
+    echo "nothing to do: $state_file does not exist yet"
+    exit 0
+  fi
+  if [ ! -e "$ready_marker" ] && ! try_auth; then
+    echo "waiting: gvmd is not ready yet"
+    exit 0
+  fi
+  mounts+=(-v "$state_file:/run/secrets/scan-state.json:ro")
+  copy_state='install -o gvm -g gvm -m 0400 /run/secrets/scan-state.json /tmp/scan-state.json'
+fi
+
+run_script() {
+  docker compose -f "$compose_file" run --rm --no-deps -T --entrypoint sh \
+    "${mounts[@]}" \
+    gvm-tools -c "install -o gvm -g gvm -m 0400 /run/secrets/gvm-tools.conf /tmp/gvm-tools.conf \
+      && $copy_state \
+      && exec gosu gvm gvm-script --config /tmp/gvm-tools.conf socket --socketpath /run/gvmd/gvmd.sock /opt/reconcile.gmp.py \"\$1\" /tmp/scan-state.json" \
+    sh "$mode" 2>&1 | { grep -v -E '^ ?Container .* (Creating|Created) ?$' || true; }
+}
+
+if [ "$mode" = idle ]; then
+  rc=0
+  run_script || rc=$?
+  [ "$rc" -eq 3 ] && exit 1
+  exit 0
+fi
+
+run_script

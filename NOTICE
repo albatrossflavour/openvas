@@ -1,0 +1,3 @@
+templates/compose.yaml.epp is adapted from the Greenbone Community Containers
+compose file, Copyright Greenbone AG, from https://github.com/greenbone/docs,
+licensed under CC-BY-SA-4.0. The adaptations are described in its comments.

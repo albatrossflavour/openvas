@@ -1,0 +1,9 @@
+<%- |
+  String[1] $username,
+  Sensitive[String[1]] $password,
+| -%>
+# Managed by Puppet (openvas) - do not edit by hand.
+# gvm-tools parses this with an interpolating ConfigParser, so % is written %%.
+[gmp]
+username = <%= regsubst($username, '%', '%%', 'G') %>
+password = <%= regsubst($password.unwrap, '%', '%%', 'G') %>

@@ -79,8 +79,10 @@ class openvas (
   contain openvas::install
   contain openvas::config
   contain openvas::service
+  contain openvas::scans
 
   Class['openvas::install']
   -> Class['openvas::config']
   ~> Class['openvas::service']
+  -> Class['openvas::scans']
 }
