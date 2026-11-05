@@ -36,6 +36,7 @@ need discovery at all.
 
 Run `greenbone-reconcile plan` on the host to see what apply would do,
 including while a scan is running.
+
 * `openvas::service`: Brings the stack up and keeps it up, current, and within its disk.
 
 ### Functions
