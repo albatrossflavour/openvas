@@ -135,4 +135,4 @@ See `REFERENCE.md` for every parameter.
 
 ## Licence
 
-Apache-2.0, except `templates/compose.yaml.epp`. That file is adapted from Greenbone's, and stays CC-BY-SA-4.0, as `LICENSE-compose` explains.
+Apache-2.0, except `templates/compose.yaml.epp`. That file is adapted from Greenbone's, and stays CC-BY-SA-4.0, as `docs/compose-licence.txt` explains.
