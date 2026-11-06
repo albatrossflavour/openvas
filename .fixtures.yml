@@ -16,6 +16,9 @@ fixtures:
     node_encrypt:
       repo: "puppetlabs/node_encrypt"
       ref: "3.1.0"
+    sshkeys_core:
+      repo: "puppetlabs/sshkeys_core"
+      ref: "3.1.0"
     apt:
       repo: "puppetlabs/apt"
       ref: "11.1.0"

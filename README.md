@@ -71,7 +71,7 @@ openvas::scan_ssh_private_key: ENC[PKCS7,...]
 openvas::scan_windows_password: ENC[PKCS7,...]
 ```
 
-These log in as the account named by `openvas::scan_login`, which defaults to `openvas`. This module does not create that account. You need to put it on every scanned node, with the public key on Linux. Windows needs it to be a local administrator, with remote registry access and SMB open to the scanner.
+These log in as the account named by `openvas::scan_login`, which defaults to `openvas`. That account has to exist on every node you scan, and `openvas::scan_account` creates it (see below).
 
 Both are forced to `Sensitive` by the module's own `lookup_options`.
 
@@ -90,34 +90,24 @@ Put the eyaml output in your Hiera, keep `openvas_scan.pub` for the nodes, and d
 
 ### Adding the scan account to the nodes
 
-On every Linux node you scan. The account needs no sudo, because the local checks read package lists any user can read.
+Include `openvas::scan_account` on every node you scan, Linux and Windows alike, but not on the scanner unless you scan it too:
 
 ```puppet
-user { 'openvas':
-  ensure     => present,
-  managehome => true,
-  shell      => '/bin/bash',
-}
-
-ssh_authorized_key { 'openvas-scan':
-  ensure => present,
-  user   => 'openvas',
-  type   => 'ssh-rsa',
-  key    => 'AAAAB3Nza...', # the middle field of openvas_scan.pub
-}
+include openvas::scan_account
 ```
 
-On Windows nodes, with the same password as `openvas::scan_windows_password`:
+It needs one more Hiera value, the whole line from `openvas_scan.pub`. Put that and the Windows password at a level every node reads, such as `common.yaml`, so the scanner and the nodes share them:
 
-```puppet
-user { 'openvas':
-  ensure   => present,
-  password => Sensitive('the scan password'),
-  groups   => ['Administrators'],
-}
+```yaml
+openvas::scan_account::ssh_public_key: "ssh-rsa AAAAB3Nza... openvas-scan"
+openvas::scan_windows_password: ENC[PKCS7,...]
 ```
 
-A local administrator logging in over the network gets a filtered token unless `LocalAccountTokenFilterPolicy` is 1 under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`. Without it the scan logs in but can't read the registry, so most Windows checks don't run.
+On Linux it creates the account with a home directory, a shell, and the public key. It needs no sudo, because the local checks read package lists any user can read. On Windows it creates the account as a local administrator with the scan password. It takes the account name from `openvas::scan_login`, and fails the catalogue if the value its platform needs is missing.
+
+If you already manage this account some other way, leave the class out, or Puppet reports a duplicate `user` resource.
+
+The Windows side still needs remote registry access, and SMB (445) open from the scanner. A local administrator logging in over the network gets a filtered token unless `LocalAccountTokenFilterPolicy` is 1 under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`. Without it the scan logs in but can't read the registry, so most Windows checks don't run.
 
 ## Purge
 

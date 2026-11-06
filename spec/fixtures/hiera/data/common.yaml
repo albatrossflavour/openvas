@@ -1,0 +1,3 @@
+---
+openvas::scan_login: hieralogin
+openvas::scan_windows_password: from-hiera

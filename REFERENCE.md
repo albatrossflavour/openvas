@@ -15,6 +15,8 @@ A bare include installs Docker, brings up the stack, sets an admin password,
 and creates one target and one task per OS family. Nothing is scanned until
 you start a task or set `scan_schedule_enabled`.
 
+* [`openvas::scan_account`](#openvas--scan_account): The account the scanner logs in as, on a node it scans.
+
 #### Private Classes
 
 * `openvas::config`: The compose file. Versioned here so the stack only changes through a module release.
@@ -240,6 +242,65 @@ Default value: `undef`
 Data type: `Optional[Sensitive[String[1]]]`
 
 That user's password. The user is only created when both are set.
+
+Default value: `undef`
+
+### <a name="openvas--scan_account"></a>`openvas::scan_account`
+
+Include this on the nodes you scan, not on the scanner. On Linux it creates
+the account with the scan key's public half. On Windows it creates a local
+administrator with the scan password. It reads the same Hiera keys as the
+scanner, so the login and Windows password are set once for both.
+
+Skip it if you already manage this account some other way, or Puppet will
+report a duplicate `user` resource.
+
+#### Examples
+
+##### Linux and Windows nodes alike
+
+```puppet
+include openvas::scan_account
+```
+
+##### Hiera, common to the scanner and the nodes
+
+```puppet
+openvas::scan_account::ssh_public_key: "ssh-rsa AAAAB3Nza... openvas-scan"
+openvas::scan_windows_password: ENC[PKCS7,...]
+```
+
+#### Parameters
+
+The following parameters are available in the `openvas::scan_account` class:
+
+* [`ssh_public_key`](#-openvas--scan_account--ssh_public_key)
+* [`login`](#-openvas--scan_account--login)
+* [`windows_password`](#-openvas--scan_account--windows_password)
+
+##### <a name="-openvas--scan_account--ssh_public_key"></a>`ssh_public_key`
+
+Data type: `Optional[Pattern[/\A(ssh|ecdsa|sk)-\S+ \S+/]]`
+
+The whole line from the `.pub` file, such as `ssh-rsa AAAA... openvas-scan`.
+Needed on Linux.
+
+Default value: `undef`
+
+##### <a name="-openvas--scan_account--login"></a>`login`
+
+Data type: `Optional[String[1]]`
+
+The account name. Defaults to `openvas::scan_login`, then `openvas`.
+
+Default value: `undef`
+
+##### <a name="-openvas--scan_account--windows_password"></a>`windows_password`
+
+Data type: `Optional[Sensitive[String[1]]]`
+
+The account's password. Defaults to `openvas::scan_windows_password`.
+Needed on Windows.
 
 Default value: `undef`
 
