@@ -15,7 +15,7 @@ A bare include installs Docker, brings up the stack, sets an admin password,
 and creates one target and one task per OS family. Nothing is scanned until
 you start a task or set `scan_schedule_enabled`.
 
-* [`openvas::scan_account`](#openvas--scan_account): The account the scanner logs in as, on a node it scans.
+* [`openvas::target`](#openvas--target): Makes a node ready for credentialed scans from the openvas scanner.
 
 #### Private Classes
 
@@ -245,41 +245,45 @@ That user's password. The user is only created when both are set.
 
 Default value: `undef`
 
-### <a name="openvas--scan_account"></a>`openvas::scan_account`
+### <a name="openvas--target"></a>`openvas::target`
 
-Include this on the nodes you scan, not on the scanner. On Linux it creates
-the account with the scan key's public half. On Windows it creates a local
-administrator with the scan password. It reads the same Hiera keys as the
-scanner, so the login and Windows password are set once for both.
+Include this on the nodes you scan; the scanner itself takes `openvas`. It
+creates the account the scanner logs in as. On Linux that is an account with
+the scan key's public half, and on Windows a local administrator with the
+scan password. It reads the scanner's own Hiera keys for the login and the
+Windows password, so those are set once for both.
+
+Safe to include everywhere before the Hiera values exist: without them it
+warns and changes nothing, and starts working once they are set.
 
 To use an account that already exists, set `manage_user` to false. On Linux
 the class then only adds the key, and on Windows it does nothing.
 
 #### Examples
 
-##### Linux and Windows nodes alike
+##### In a profile every scanned node gets
 
 ```puppet
-include openvas::scan_account
+include openvas::target
 ```
 
 ##### Hiera, common to the scanner and the nodes
 
 ```puppet
-openvas::scan_account::ssh_public_key: "ssh-rsa AAAAB3Nza... openvas-scan"
+openvas::target::ssh_public_key: "ssh-rsa AAAAB3Nza... openvas-scan"
 openvas::scan_windows_password: ENC[PKCS7,...]
 ```
 
 #### Parameters
 
-The following parameters are available in the `openvas::scan_account` class:
+The following parameters are available in the `openvas::target` class:
 
-* [`ssh_public_key`](#-openvas--scan_account--ssh_public_key)
-* [`login`](#-openvas--scan_account--login)
-* [`manage_user`](#-openvas--scan_account--manage_user)
-* [`windows_password`](#-openvas--scan_account--windows_password)
+* [`ssh_public_key`](#-openvas--target--ssh_public_key)
+* [`login`](#-openvas--target--login)
+* [`manage_user`](#-openvas--target--manage_user)
+* [`windows_password`](#-openvas--target--windows_password)
 
-##### <a name="-openvas--scan_account--ssh_public_key"></a>`ssh_public_key`
+##### <a name="-openvas--target--ssh_public_key"></a>`ssh_public_key`
 
 Data type: `Optional[Pattern[/\A(ssh|ecdsa|sk)-\S+ \S+/]]`
 
@@ -288,7 +292,7 @@ Needed on Linux.
 
 Default value: `undef`
 
-##### <a name="-openvas--scan_account--login"></a>`login`
+##### <a name="-openvas--target--login"></a>`login`
 
 Data type: `Optional[String[1]]`
 
@@ -296,7 +300,7 @@ The account name. Defaults to `openvas::scan_login`, then `openvas`.
 
 Default value: `undef`
 
-##### <a name="-openvas--scan_account--manage_user"></a>`manage_user`
+##### <a name="-openvas--target--manage_user"></a>`manage_user`
 
 Data type: `Boolean`
 
@@ -305,7 +309,7 @@ exists or is managed elsewhere.
 
 Default value: `true`
 
-##### <a name="-openvas--scan_account--windows_password"></a>`windows_password`
+##### <a name="-openvas--target--windows_password"></a>`windows_password`
 
 Data type: `Optional[Sensitive[String[1]]]`
 

@@ -2,6 +2,17 @@
 
 Greenbone Community Edition (OpenVAS) as a docker compose stack, with what it scans built from PuppetDB.
 
+## Two classes, on two kinds of node
+
+| Class | Goes on | Does |
+|---|---|---|
+| `openvas` | the scanner | Installs and runs Greenbone, and decides what gets scanned, when, and with which credentials. Everything is a parameter on this class |
+| `openvas::target` | every node you want scanned with credentials | Creates the account the scanner logs in as. Put it in a profile every node gets |
+
+They are separate because Puppet only changes the node it is running on. The scanner's catalogue can't create an account on another node, so each scanned node does that in its own.
+
+You only need `openvas::target` for credentialed scans. Without it the scanner still scans every node, from the outside. It is safe to include everywhere before the credentials are in Hiera: it warns and changes nothing until they are.
+
 ## What `include openvas` does
 
 On a clean agent, with no Hiera data:
@@ -14,7 +25,7 @@ On a clean agent, with no Hiera data:
 
 The web UI listens on `https://127.0.0.1:443`. Set `openvas::web_bind_address` to an IPv4 address to reach it from elsewhere.
 
-`examples/` has both ways of declaring it.
+`examples/` has the scanner with and without schedules and credentials, and a scanned node.
 
 ## Scans are off by default
 
@@ -64,20 +75,9 @@ If you unset `openvas::admin_password` later, the file Puppet wrote stays in pla
 
 ## Credentialed scans
 
-Without credentials, hosts are scanned from the outside, which finds much less.
+Without credentials, hosts are scanned from the outside, which finds much less. Credentials need three steps: a key and a password for the scanner, and an account on the nodes.
 
-```yaml
-openvas::scan_ssh_private_key: ENC[PKCS7,...]
-openvas::scan_windows_password: ENC[PKCS7,...]
-```
-
-These log in as the account named by `openvas::scan_login`, which defaults to `openvas`. That account has to exist on every node you scan, and `openvas::scan_account` creates it (see below).
-
-Both are forced to `Sensitive` by the module's own `lookup_options`.
-
-There is no separate switch for authenticated scanning. Set a key and the Linux targets log in over SSH, set a password and the Windows target logs in over SMB, and leave either unset to scan that family from the outside.
-
-### Making the SSH key
+### 1. Make the SSH key
 
 The module has no passphrase setting, so make the key without one:
 
@@ -86,28 +86,37 @@ ssh-keygen -t rsa -b 4096 -N '' -C openvas-scan -f openvas_scan
 eyaml encrypt -l openvas::scan_ssh_private_key -f openvas_scan
 ```
 
-Put the eyaml output in your Hiera, keep `openvas_scan.pub` for the nodes, and delete the private key file once it's encrypted.
+Keep `openvas_scan.pub` for step 2, and delete the private key file once it's encrypted.
 
-### Adding the scan account to the nodes
+### 2. Put the credentials in Hiera
 
-Include `openvas::scan_account` on every node you scan, Linux and Windows alike, but not on the scanner unless you scan it too:
-
-```puppet
-include openvas::scan_account
-```
-
-It needs one more Hiera value, the whole line from `openvas_scan.pub`. Put that and the Windows password at a level every node reads, such as `common.yaml`, so the scanner and the nodes share them:
+At a level both the scanner and the scanned nodes read, such as `common.yaml`:
 
 ```yaml
-openvas::scan_account::ssh_public_key: "ssh-rsa AAAAB3Nza... openvas-scan"
-openvas::scan_windows_password: ENC[PKCS7,...]
+openvas::scan_ssh_private_key: ENC[PKCS7,...]                                # the scanner logs in to Linux with this
+openvas::target::ssh_public_key: "ssh-rsa AAAAB3Nza... openvas-scan"          # Linux nodes accept this
+openvas::scan_windows_password: ENC[PKCS7,...]                               # the scanner and Windows nodes share this
 ```
 
-On Linux it creates the account with a home directory, a shell, and the public key. It needs no sudo, because the local checks read package lists any user can read. On Windows it creates the account as a local administrator with the scan password. It takes the account name from `openvas::scan_login`, and fails the catalogue if the value its platform needs is missing.
+The scanner turns each credential on when it is set, and scans that OS family from the outside when it isn't. There is no separate switch. The secrets are forced to `Sensitive` by the module's own `lookup_options`.
 
-To use a different account name, set `openvas::scan_login`, which the scanner and this class both read. To use an account that already exists, or that something else manages, set `openvas::scan_account::manage_user: false`. On Linux the class then only adds the public key to that account, and on Windows it does nothing, so the account needs to be a local administrator already.
+### 3. Include `openvas::target` on the scanned nodes
 
-The Windows side still needs remote registry access, and SMB (445) open from the scanner. A local administrator logging in over the network gets a filtered token unless `LocalAccountTokenFilterPolicy` is 1 under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`. Without it the scan logs in but can't read the registry, so most Windows checks don't run.
+```puppet
+include openvas::target
+```
+
+On Linux it creates an account with a home directory, a shell, and the public key. It needs no sudo, because the local checks read package lists any user can read. On Windows it creates a local administrator with the scan password. Without its value it warns and creates nothing.
+
+### Choosing the account
+
+The scanner logs in as `openvas::scan_login`, which defaults to `openvas`, and `openvas::target` creates an account of the same name. Set it once to change both.
+
+To use an account that already exists, or that something else manages, set `openvas::target::manage_user: false`. On Linux the class then only adds the public key to that account, and on Windows it does nothing, so the account needs to be a local administrator already.
+
+### Windows needs more than the account
+
+Remote registry access, and SMB (445) open from the scanner. A local administrator logging in over the network also gets a filtered token unless `LocalAccountTokenFilterPolicy` is 1 under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`. Without it the scan logs in but can't read the registry, so most Windows checks don't run. The module doesn't manage these.
 
 ## Purge
 

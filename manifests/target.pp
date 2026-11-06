@@ -1,9 +1,13 @@
-# @summary The account the scanner logs in as, on a node it scans.
+# @summary Makes a node ready for credentialed scans from the openvas scanner.
 #
-# Include this on the nodes you scan, not on the scanner. On Linux it creates
-# the account with the scan key's public half. On Windows it creates a local
-# administrator with the scan password. It reads the same Hiera keys as the
-# scanner, so the login and Windows password are set once for both.
+# Include this on the nodes you scan; the scanner itself takes `openvas`. It
+# creates the account the scanner logs in as. On Linux that is an account with
+# the scan key's public half, and on Windows a local administrator with the
+# scan password. It reads the scanner's own Hiera keys for the login and the
+# Windows password, so those are set once for both.
+#
+# Safe to include everywhere before the Hiera values exist: without them it
+# warns and changes nothing, and starts working once they are set.
 #
 # To use an account that already exists, set `manage_user` to false. On Linux
 # the class then only adds the key, and on Windows it does nothing.
@@ -20,13 +24,13 @@
 #   The account's password. Defaults to `openvas::scan_windows_password`.
 #   Needed on Windows when `manage_user` is true.
 #
-# @example Linux and Windows nodes alike
-#   include openvas::scan_account
+# @example In a profile every scanned node gets
+#   include openvas::target
 #
 # @example Hiera, common to the scanner and the nodes
-#   openvas::scan_account::ssh_public_key: "ssh-rsa AAAAB3Nza... openvas-scan"
+#   openvas::target::ssh_public_key: "ssh-rsa AAAAB3Nza... openvas-scan"
 #   openvas::scan_windows_password: ENC[PKCS7,...]
-class openvas::scan_account (
+class openvas::target (
   Optional[Pattern[/\A(ssh|ecdsa|sk)-\S+ \S+/]] $ssh_public_key = undef,
   Optional[String[1]] $login = undef,
   Boolean $manage_user = true,
@@ -37,22 +41,20 @@ class openvas::scan_account (
   $_password = $windows_password.lest || { lookup('openvas::scan_windows_password', Optional[Sensitive[String[1]]], 'first', undef) }
 
   if $facts['os']['family'] == 'windows' {
-    if $manage_user and $_password =~ Undef {
-      fail('openvas::scan_account needs openvas::scan_windows_password on Windows')
-    }
-
     if $manage_user {
-      user { $_login:
-        ensure   => present,
-        password => $_password,
-        groups   => ['Administrators'],
+      if $_password =~ Undef {
+        warning('openvas::target: openvas::scan_windows_password is not set, so no scan account is created')
+      } else {
+        user { $_login:
+          ensure   => present,
+          password => $_password,
+          groups   => ['Administrators'],
+        }
       }
     }
+  } elsif $ssh_public_key =~ Undef {
+    warning('openvas::target: openvas::target::ssh_public_key is not set, so no scan account is created')
   } else {
-    if $ssh_public_key =~ Undef {
-      fail('openvas::scan_account needs openvas::scan_account::ssh_public_key on Linux')
-    }
-
     $key = $ssh_public_key.split(' ')
 
     if $manage_user {

@@ -2,8 +2,18 @@
 
 require 'spec_helper'
 
-describe 'openvas::scan_account' do
+describe 'openvas::target' do
   let(:pub) { 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7 openvas-scan' }
+  let(:logs) { [] }
+
+  before(:each) do
+    Puppet::Util::Log.newdestination(Puppet::Test::LogCollector.new(logs))
+  end
+
+  def warnings
+    # Only this module's: the spec harness's own Hiera setup warns as well.
+    logs.select { |l| l.level == :warning && l.message.include?('openvas::') }.map(&:message)
+  end
 
   context 'on Linux' do
     let(:facts) { { 'os' => { 'family' => 'Debian', 'name' => 'Ubuntu' }, 'kernel' => 'Linux' } }
@@ -37,7 +47,11 @@ describe 'openvas::scan_account' do
     end
 
     context 'without a public key' do
-      it { is_expected.to compile.and_raise_error(%r{needs openvas::scan_account::ssh_public_key}) }
+      it 'compiles, changes nothing, and says why' do
+        is_expected.to compile.with_all_deps
+        is_expected.to have_resource_count(0)
+        expect(warnings).to include(%r{openvas::target::ssh_public_key is not set})
+      end
     end
 
     context 'with a private key by mistake' do
@@ -75,13 +89,16 @@ describe 'openvas::scan_account' do
       let(:params) { { 'login' => 'svc_scan', 'manage_user' => false } }
 
       it 'changes nothing, and needs no password' do
-        is_expected.not_to contain_user('svc_scan')
         is_expected.to have_resource_count(0)
+        expect(warnings).to be_empty
       end
     end
 
     context 'without the scan password' do
-      it { is_expected.to compile.and_raise_error(%r{needs openvas::scan_windows_password}) }
+      it 'changes nothing, and says why' do
+        is_expected.to have_resource_count(0)
+        expect(warnings).to include(%r{openvas::scan_windows_password is not set})
+      end
     end
   end
 end
