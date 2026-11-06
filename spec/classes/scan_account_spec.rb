@@ -28,6 +28,14 @@ describe 'openvas::scan_account' do
       it { is_expected.to contain_ssh_authorized_key('scanner-scan').with_user('scanner') }
     end
 
+    context 'with an existing account' do
+      let(:params) { { 'ssh_public_key' => pub, 'login' => 'svc_scan', 'manage_user' => false } }
+
+      it { is_expected.to compile.with_all_deps }
+      it { is_expected.not_to contain_user('svc_scan') }
+      it { is_expected.to contain_ssh_authorized_key('svc_scan-scan').with(user: 'svc_scan', key: 'AAAAB3NzaC1yc2EAAAADAQABAAABAQC7') }
+    end
+
     context 'without a public key' do
       it { is_expected.to compile.and_raise_error(%r{needs openvas::scan_account::ssh_public_key}) }
     end
@@ -60,6 +68,15 @@ describe 'openvas::scan_account' do
 
       it 'uses the scanner keys' do
         is_expected.to contain_user('hieralogin').with_password(sensitive('from-hiera'))
+      end
+    end
+
+    context 'with an existing account' do
+      let(:params) { { 'login' => 'svc_scan', 'manage_user' => false } }
+
+      it 'changes nothing, and needs no password' do
+        is_expected.not_to contain_user('svc_scan')
+        is_expected.to have_resource_count(0)
       end
     end
 

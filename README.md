@@ -105,7 +105,7 @@ openvas::scan_windows_password: ENC[PKCS7,...]
 
 On Linux it creates the account with a home directory, a shell, and the public key. It needs no sudo, because the local checks read package lists any user can read. On Windows it creates the account as a local administrator with the scan password. It takes the account name from `openvas::scan_login`, and fails the catalogue if the value its platform needs is missing.
 
-If you already manage this account some other way, leave the class out, or Puppet reports a duplicate `user` resource.
+To use a different account name, set `openvas::scan_login`, which the scanner and this class both read. To use an account that already exists, or that something else manages, set `openvas::scan_account::manage_user: false`. On Linux the class then only adds the public key to that account, and on Windows it does nothing, so the account needs to be a local administrator already.
 
 The Windows side still needs remote registry access, and SMB (445) open from the scanner. A local administrator logging in over the network gets a filtered token unless `LocalAccountTokenFilterPolicy` is 1 under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`. Without it the scan logs in but can't read the registry, so most Windows checks don't run.
 

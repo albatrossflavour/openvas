@@ -252,8 +252,8 @@ the account with the scan key's public half. On Windows it creates a local
 administrator with the scan password. It reads the same Hiera keys as the
 scanner, so the login and Windows password are set once for both.
 
-Skip it if you already manage this account some other way, or Puppet will
-report a duplicate `user` resource.
+To use an account that already exists, set `manage_user` to false. On Linux
+the class then only adds the key, and on Windows it does nothing.
 
 #### Examples
 
@@ -276,6 +276,7 @@ The following parameters are available in the `openvas::scan_account` class:
 
 * [`ssh_public_key`](#-openvas--scan_account--ssh_public_key)
 * [`login`](#-openvas--scan_account--login)
+* [`manage_user`](#-openvas--scan_account--manage_user)
 * [`windows_password`](#-openvas--scan_account--windows_password)
 
 ##### <a name="-openvas--scan_account--ssh_public_key"></a>`ssh_public_key`
@@ -295,12 +296,21 @@ The account name. Defaults to `openvas::scan_login`, then `openvas`.
 
 Default value: `undef`
 
+##### <a name="-openvas--scan_account--manage_user"></a>`manage_user`
+
+Data type: `Boolean`
+
+Whether to create the account. Set false for an account that already
+exists or is managed elsewhere.
+
+Default value: `true`
+
 ##### <a name="-openvas--scan_account--windows_password"></a>`windows_password`
 
 Data type: `Optional[Sensitive[String[1]]]`
 
 The account's password. Defaults to `openvas::scan_windows_password`.
-Needed on Windows.
+Needed on Windows when `manage_user` is true.
 
 Default value: `undef`
 
