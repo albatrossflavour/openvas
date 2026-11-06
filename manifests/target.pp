@@ -23,6 +23,11 @@
 # @param windows_password
 #   The account's password. Defaults to `openvas::scan_windows_password`.
 #   Needed on Windows when `manage_user` is true.
+# @param ssh_key_name
+#   The name of the authorised key, `<login>-scan` by default. Declared with
+#   stdlib's `ensure_resource`, so another module describing the same key under
+#   the same name, such as a second scanner sharing this account, declares it
+#   once. The same name for a different key fails the catalogue.
 #
 # @example In a profile every scanned node gets
 #   include openvas::target
@@ -35,6 +40,7 @@ class openvas::target (
   Optional[String[1]] $login = undef,
   Boolean $manage_user = true,
   Optional[Sensitive[String[1]]] $windows_password = undef,
+  Optional[String[1]] $ssh_key_name = undef,
 ) {
   # The scanner's keys, so one Hiera value serves the scanner and the nodes.
   $_login = $login.lest || { lookup('openvas::scan_login', String[1], 'first', 'openvas') }
@@ -56,21 +62,22 @@ class openvas::target (
     warning('openvas::target: openvas::target::ssh_public_key is not set, so no scan account is created')
   } else {
     $key = $ssh_public_key.split(' ')
+    $_key_name = $ssh_key_name.lest || { "${_login}-scan" }
 
     if $manage_user {
       user { $_login:
         ensure     => present,
         managehome => true,
         shell      => '/bin/bash',
-        before     => Ssh_authorized_key["${_login}-scan"],
+        before     => Ssh_authorized_key[$_key_name],
       }
     }
 
-    ssh_authorized_key { "${_login}-scan":
-      ensure => present,
-      user   => $_login,
-      type   => $key[0],
-      key    => $key[1],
-    }
+    ensure_resource('ssh_authorized_key', $_key_name, {
+      'ensure' => 'present',
+      'user'   => $_login,
+      'type'   => $key[0],
+      'key'    => $key[1],
+    })
   }
 }

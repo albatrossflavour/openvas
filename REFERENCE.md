@@ -282,6 +282,7 @@ The following parameters are available in the `openvas::target` class:
 * [`login`](#-openvas--target--login)
 * [`manage_user`](#-openvas--target--manage_user)
 * [`windows_password`](#-openvas--target--windows_password)
+* [`ssh_key_name`](#-openvas--target--ssh_key_name)
 
 ##### <a name="-openvas--target--ssh_public_key"></a>`ssh_public_key`
 
@@ -315,6 +316,17 @@ Data type: `Optional[Sensitive[String[1]]]`
 
 The account's password. Defaults to `openvas::scan_windows_password`.
 Needed on Windows when `manage_user` is true.
+
+Default value: `undef`
+
+##### <a name="-openvas--target--ssh_key_name"></a>`ssh_key_name`
+
+Data type: `Optional[String[1]]`
+
+The name of the authorised key, `<login>-scan` by default. Declared with
+stdlib's `ensure_resource`, so another module describing the same key under
+the same name, such as a second scanner sharing this account, declares it
+once. The same name for a different key fails the catalogue.
 
 Default value: `undef`
 

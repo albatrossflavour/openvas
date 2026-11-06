@@ -114,6 +114,10 @@ The scanner logs in as `openvas::scan_login`, which defaults to `openvas`, and `
 
 To use an account that already exists, or that something else manages, set `openvas::target::manage_user: false`. On Linux the class then only adds the public key to that account, and on Windows it does nothing, so the account needs to be a local administrator already.
 
+### Sharing the account with another scanner
+
+The key is added as `openvas-scan` by default, and `openvas::target::ssh_key_name` changes that. When another scanner logs in as the same account with the same key, give both the same key name: the key is declared once and appears once in `authorized_keys`. The same name with a different key fails the catalogue, naming the clash, rather than one of them quietly winning.
+
 ### Windows needs more than the account
 
 Remote registry access, and SMB (445) open from the scanner. A local administrator logging in over the network also gets a filtered token unless `LocalAccountTokenFilterPolicy` is 1 under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`. Without it the scan logs in but can't read the registry, so most Windows checks don't run. The module doesn't manage these.

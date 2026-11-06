@@ -46,6 +46,33 @@ describe 'openvas::target' do
       it { is_expected.to contain_ssh_authorized_key('svc_scan-scan').with(user: 'svc_scan', key: 'AAAAB3NzaC1yc2EAAAADAQABAAABAQC7') }
     end
 
+    context 'with a key name' do
+      let(:params) { { 'ssh_public_key' => pub, 'ssh_key_name' => 'shared' } }
+
+      it { is_expected.to contain_ssh_authorized_key('shared').with(user: 'openvas', key: 'AAAAB3NzaC1yc2EAAAADAQABAAABAQC7') }
+      it { is_expected.to contain_user('openvas').that_comes_before('Ssh_authorized_key[shared]') }
+      it { is_expected.not_to contain_ssh_authorized_key('openvas-scan') }
+    end
+
+    context 'with the same key already declared under that name' do
+      let(:params) { { 'ssh_public_key' => pub, 'ssh_key_name' => 'shared', 'manage_user' => false } }
+      let(:pre_condition) do
+        "ensure_resource('ssh_authorized_key', 'shared', { 'ensure' => 'present', 'user' => 'openvas', 'type' => 'ssh-rsa', 'key' => 'AAAAB3NzaC1yc2EAAAADAQABAAABAQC7' })"
+      end
+
+      it { is_expected.to compile.with_all_deps }
+      it { is_expected.to contain_ssh_authorized_key('shared') }
+    end
+
+    context 'with the same name already declared for a different key' do
+      let(:params) { { 'ssh_public_key' => pub, 'ssh_key_name' => 'shared', 'manage_user' => false } }
+      let(:pre_condition) do
+        "ensure_resource('ssh_authorized_key', 'shared', { 'ensure' => 'present', 'user' => 'openvas', 'type' => 'ssh-rsa', 'key' => 'AAAAdifferent' })"
+      end
+
+      it { is_expected.to compile.and_raise_error(%r{Duplicate declaration}) }
+    end
+
     context 'without a public key' do
       it 'compiles, changes nothing, and says why' do
         is_expected.to compile.with_all_deps
