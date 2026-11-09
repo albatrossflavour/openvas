@@ -165,6 +165,16 @@ describe 'openvas' do
         end
       end
 
+      context 'with only the Windows start moved in Hiera' do
+        let(:hiera_config) { 'spec/fixtures/hiera_schedule/hiera.yaml' }
+
+        it 'moves Windows and keeps the other defaults' do
+          starts = state['schedules'].to_h { |s| [s['name'], s['icalendar'][%r{DTSTART:(\S+)}, 1]] }
+          expect(starts).to eq('Puppet: weekly Debian' => '20260912T180000Z', 'Puppet: weekly RedHat' => '20260912T160000Z',
+                               'Puppet: weekly Windows' => '20261110T130000Z')
+        end
+      end
+
       # Reconciler digests hash these. A change here recreates objects in gvmd on
       # every existing install, so it has to be deliberate.
       context 'with everything set, pinning the state shape' do

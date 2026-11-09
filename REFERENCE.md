@@ -193,18 +193,11 @@ Default value: `[]`
 Data type: `Hash[String[1], String[1]]`
 
 First run per OS family (UTC, iCalendar DTSTART), repeated weekly on that
-day and time. A value set in Hiera replaces this whole hash, so list every
-family. One left out falls back to `scan_default_start`.
+day and time. Defaults (in the module's data) are Saturday 16:00 UTC for
+RedHat, 18:00 for Debian, and 20:00 for windows. Hiera merges into them, so
+setting one family leaves the others where they are.
 
-Default value:
-
-```puppet
-{
-    'RedHat'  => '20260912T160000Z',
-    'Debian'  => '20260912T180000Z',
-    'windows' => '20260912T200000Z',
-  }
-```
+Default value: `{}`
 
 ##### <a name="-openvas--scan_default_start"></a>`scan_default_start`
 

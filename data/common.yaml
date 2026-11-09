@@ -1,5 +1,7 @@
 ---
 lookup_options:
+  openvas::scan_schedule_starts:
+    merge: hash
   openvas::admin_password:
     convert_to: "Sensitive"
   openvas::scan_ssh_private_key:
@@ -8,3 +10,7 @@ lookup_options:
     convert_to: "Sensitive"
   openvas::scan_observer_password:
     convert_to: "Sensitive"
+openvas::scan_schedule_starts:
+  RedHat: '20260912T160000Z'
+  Debian: '20260912T180000Z'
+  windows: '20260912T200000Z'

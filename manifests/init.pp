@@ -44,8 +44,9 @@
 #   Certnames to leave out of the scan scope.
 # @param scan_schedule_starts
 #   First run per OS family (UTC, iCalendar DTSTART), repeated weekly on that
-#   day and time. A value set in Hiera replaces this whole hash, so list every
-#   family. One left out falls back to `scan_default_start`.
+#   day and time. Defaults (in the module's data) are Saturday 16:00 UTC for
+#   RedHat, 18:00 for Debian, and 20:00 for windows. Hiera merges into them, so
+#   setting one family leaves the others where they are.
 # @param scan_default_start
 #   First run for any OS family not in `scan_schedule_starts`. With the default
 #   hash that's none of RedHat, Debian, or windows, so this alone moves nothing.
@@ -70,11 +71,7 @@ class openvas (
   Boolean                        $scan_purge             = false,
   Boolean                        $scan_schedule_enabled  = false,
   Array[String[1]]               $scan_exclude           = [],
-  Hash[String[1], String[1]]     $scan_schedule_starts   = {
-    'RedHat'  => '20260912T160000Z',
-    'Debian'  => '20260912T180000Z',
-    'windows' => '20260912T200000Z',
-  },
+  Hash[String[1], String[1]]     $scan_schedule_starts   = {}, # from data/common.yaml
   String[1]                      $scan_default_start     = '20260912T220000Z',
   Integer[1]                     $scan_max_hosts         = 20,
   Integer[1]                     $scan_max_checks        = 4,

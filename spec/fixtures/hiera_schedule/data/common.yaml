@@ -1,0 +1,4 @@
+---
+openvas::scan_schedule_enabled: true
+openvas::scan_schedule_starts:
+  windows: '20261110T130000Z'
