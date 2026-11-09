@@ -34,3 +34,6 @@ fixtures:
     inifile:
       repo: "puppetlabs/inifile"
       ref: "6.2.0"
+    yumrepo_core:
+      repo: "puppetlabs/yumrepo_core"
+      ref: "2.1.0"

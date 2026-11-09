@@ -31,7 +31,15 @@
     {
       "operatingsystem": "Ubuntu",
       "operatingsystemrelease": [
-        "24.04"
+        "24.04",
+        "26.04"
+      ]
+    },
+    {
+      "operatingsystem": "AlmaLinux",
+      "operatingsystemrelease": [
+        "9",
+        "10"
       ]
     }
   ],

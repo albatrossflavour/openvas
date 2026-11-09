@@ -316,6 +316,8 @@ def main(mode, state_path):
     for desc, _ in plan:
         print(("" if mode == "apply" else "would ") + desc)
     if mode == "plan":
+        if not plan:
+            print("nothing to do")
         return 0
     if mode == "check":
         return 3 if plan else 0

@@ -171,7 +171,7 @@ sudo rm -rf /opt/greenbone-community-container /usr/local/sbin/greenbone-reconci
 
 ## Limitations
 
-- Ubuntu 24.04 only, and IPv4 only for the web UI
+- Ubuntu 24.04 and 26.04 and AlmaLinux 9 and 10, and IPv4 only for the web UI
 - One target and one task per OS family, with the `Full and fast` scan config and the `All IANA assigned TCP` port list
 - Each node is scanned at its primary address, from the `networking.ip` fact. A node whose primary address the scanner can't reach still appears, and comes back with nothing found, so use `openvas::scan_exclude` for those
 - The images track Greenbone's `stable` and `latest` tags and update weekly, so a Greenbone release reaches you without a module release

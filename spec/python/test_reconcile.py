@@ -129,7 +129,8 @@ def test_schedule_off_clears_then_deletes(tmp_path):
     assert '<schedule id="0"/>' in modify
 
 
-def test_schedule_off_is_stable_once_cleared(tmp_path):
+def converged(tmp_path):
+    """A state file and a gvmd that already matches it."""
     task = FakeGvmd()
     path = state(tmp_path, schedule=None)
     run("apply", path, task)
@@ -149,8 +150,18 @@ def test_schedule_off_is_stable_once_cleared(tmp_path):
         return original(xml)
 
     gvmd.send_command = with_target
-    code, out = run("check", path, gvmd)
+    return path, gvmd
+
+
+def test_schedule_off_is_stable_once_cleared(tmp_path):
+    code, out = run("check", *converged(tmp_path))
     assert code == 0, out
+
+
+def test_plan_says_when_there_is_nothing_to_do(tmp_path):
+    code, out = run("plan", *converged(tmp_path))
+    assert code == 0
+    assert out.strip() == "nothing to do"
 
 
 def test_schedule_removed_by_hand_is_repointed_in_one_run(tmp_path):
