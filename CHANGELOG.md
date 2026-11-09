@@ -2,7 +2,7 @@
 
 ## 0.1.0
 
-First release. Installs the Greenbone Community Edition stack on Ubuntu 24.04, and builds scan targets and tasks from PuppetDB. Scheduled scans are off by default.
+First release. Installs the Greenbone Community Edition stack on Ubuntu 24.04 and 26.04 and AlmaLinux 9 and 10, and builds scan targets and tasks from PuppetDB. Scheduled scans are off by default.
 
 - `include openvas` needs no Hiera data: the admin password is generated on the node, and credentials are optional
 - Agent runs stay green during the first feed import, and fail if gvmd hasn't accepted the password after a day
