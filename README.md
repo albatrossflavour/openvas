@@ -37,7 +37,18 @@ With the defaults you can start any task by hand from the web UI. To scan every 
 openvas::scan_schedule_enabled: true
 ```
 
-The first runs default to Saturday, 16:00 UTC for RedHat, 18:00 for Debian, 20:00 for Windows, and 22:00 for anything else. Change them with `openvas::scan_schedule_starts` and `openvas::scan_default_start`.
+The first runs default to Saturday, 16:00 UTC for RedHat, 18:00 for Debian, and 20:00 for Windows, and each repeats weekly on that day and time. To move one, set `openvas::scan_schedule_starts` with every family in it. The hash you set replaces the default whole, and a family you leave out falls back to `openvas::scan_default_start`.
+
+```yaml
+openvas::scan_schedule_starts:
+  RedHat: '20260912T160000Z'
+  Debian: '20260912T180000Z'
+  windows: '20261110T130000Z'
+```
+
+Times are UTC, in iCalendar form. The date only sets the first run, so that Windows scan runs every Tuesday at 13:00 UTC.
+
+`openvas::scan_default_start` (Saturday, 22:00 UTC) is only for OS families with no entry in `scan_schedule_starts`. With the default hash that's none of RedHat, Debian, or Windows, so setting it on its own moves nothing.
 
 ## Requirements
 

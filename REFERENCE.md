@@ -192,7 +192,9 @@ Default value: `[]`
 
 Data type: `Hash[String[1], String[1]]`
 
-First run per OS family (UTC, iCalendar DTSTART), repeated weekly.
+First run per OS family (UTC, iCalendar DTSTART), repeated weekly on that
+day and time. A value set in Hiera replaces this whole hash, so list every
+family. One left out falls back to `scan_default_start`.
 
 Default value:
 
@@ -208,7 +210,8 @@ Default value:
 
 Data type: `String[1]`
 
-First run for any OS family not in `scan_schedule_starts`.
+First run for any OS family not in `scan_schedule_starts`. With the default
+hash that's none of RedHat, Debian, or windows, so this alone moves nothing.
 
 Default value: `'20260912T220000Z'`
 
