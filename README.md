@@ -52,8 +52,10 @@ Times are UTC, in iCalendar form. The date only sets the first run, so that Wind
 
 ## Requirements
 
-- Ubuntu 24.04. Nothing else is tested yet
+- Ubuntu 24.04, where it runs in production. A bare install on AlmaLinux 9 and 10 and Ubuntu 26.04 was tested on 2026-11-09, without running a scan
 - Puppet 8 with PuppetDB. Without PuppetDB the stack still installs, and scan targets are skipped with a warning
+- An agent certificate. Credentials are encrypted to it with `node_encrypt`, so `puppet apply` on a node that has never joined a Puppet server fails
+- On EL10, a reboot after the first run. `docker-ce` pulls in `kernel-modules-extra` for the newest kernel, and Docker can't start until that kernel is running
 - 8 CPUs, 16 GB of memory, and at least 200 GB of disk. The stack uses about 75 GB once settled, and a SCAP data rebuild wants about the size of its own database free again
 
 ## The first install takes a while
