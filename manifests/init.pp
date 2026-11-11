@@ -58,7 +58,8 @@
 #   Optional read-only gvmd user, for anything that pulls reports. It is created
 #   with the Observer role and can see the managed tasks and their reports only.
 # @param scan_observer_password
-#   That user's password. The user is only created when both are set.
+#   That user's password. Set both or neither: one without the other fails the
+#   catalogue.
 class openvas (
   Pattern[/\A\/[\w.\/-]+\z/]     $install_dir            = '/opt/greenbone-community-container',
   String[1]                      $feed_release           = '24.10',
@@ -80,6 +81,12 @@ class openvas (
 ) {
   if $admin_password =~ NotUndef and $admin_password.unwrap =~ /\A\s|\s\z/ {
     fail('openvas: admin_password cannot start or end with whitespace, because gvm-tools strips it and the login would never work')
+  }
+
+  # One without the other used to create nothing and say nothing, leaving
+  # whatever reads reports with a user gvmd has never heard of.
+  if ($scan_observer_user =~ Undef) != ($scan_observer_password =~ Undef) {
+    fail('openvas: set scan_observer_user and scan_observer_password together, or neither')
   }
 
   contain openvas::install

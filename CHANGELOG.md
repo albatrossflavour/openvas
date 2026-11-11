@@ -10,3 +10,4 @@ First release. Installs the Greenbone Community Edition stack on Ubuntu 24.04 an
 - `openvas::target` creates the scan account on the nodes being scanned, from the same Hiera values as the scanner, and only warns while those values are missing
 - `openvas::target::ssh_key_name` names the authorised key, so a second scanner sharing the account and key declares it once
 - `openvas::scan_schedule_starts` merges through Hiera, so moving one OS family's start leaves the others on their defaults
+- `openvas::scan_observer_user` and `openvas::scan_observer_password` have to be set together, and the catalogue fails if only one is

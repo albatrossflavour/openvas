@@ -153,7 +153,7 @@ This prints what the reconciler would change, and changes nothing. No output mea
 
 ## Reading reports from another tool
 
-`openvas::scan_observer_user` and `openvas::scan_observer_password` create a read-only gvmd user who can see the managed tasks and their reports and nothing else.
+`openvas::scan_observer_user` and `openvas::scan_observer_password` create a read-only gvmd user who can see the managed tasks and their reports and nothing else. Set both or neither, since one on its own fails the catalogue. Soundwave logs in with the same two settings, so they only need setting here.
 
 `scan-hosts.json` in the install directory maps each scanned address to its certname, since gvmd only knows addresses. An address claimed by more than one certname is left out.
 

@@ -237,7 +237,8 @@ Default value: `undef`
 
 Data type: `Optional[Sensitive[String[1]]]`
 
-That user's password. The user is only created when both are set.
+That user's password. Set both or neither: one without the other fails the
+catalogue.
 
 Default value: `undef`
 

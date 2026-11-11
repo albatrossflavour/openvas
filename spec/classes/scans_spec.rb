@@ -112,6 +112,14 @@ describe 'openvas' do
         end
       end
 
+      [{ 'scan_observer_user' => 'reader' }, { 'scan_observer_password' => 'RO' }].each do |half|
+        context "with only #{half.keys.first} set" do
+          let(:params) { half.transform_values { |v| v == 'RO' ? sensitive(v) : v } }
+
+          it { is_expected.to compile.and_raise_error(%r{scan_observer_user and scan_observer_password}) }
+        end
+      end
+
       context 'when puppetdb_query is not available' do
         let(:pre_condition) { 'function node_encrypt::secret($data) { $data }' }
 
