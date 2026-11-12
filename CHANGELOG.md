@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1
+
+- The README links to the docs on GitHub, so they work on the Forge
+
 ## 0.1.0
 
 First release. Installs the Greenbone Community Edition stack on Ubuntu 24.04 and 26.04 and AlmaLinux 9 and 10, and builds scan targets and tasks from PuppetDB. Scheduled scans are off by default.

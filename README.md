@@ -28,7 +28,7 @@ The web UI listens on `https://127.0.0.1:443`. Set `openvas::web_bind_address` t
 
 `examples/` has the scanner with and without schedules and credentials, and a scanned node.
 
-Purge is off by default. Even with it off, a PuppetDB answer that leaves out every node in an OS family deletes that family's task and its reports. See [What can still delete things with purge off](docs/configuration.md#what-can-still-delete-things-with-purge-off).
+Purge is off by default. Even with it off, a PuppetDB answer that leaves out every node in an OS family deletes that family's task and its reports. See [What can still delete things with purge off](https://github.com/albatrossflavour/openvas/blob/main/docs/configuration.md#what-can-still-delete-things-with-purge-off).
 
 ## Requirements
 
@@ -39,14 +39,14 @@ Purge is off by default. Even with it off, a PuppetDB answer that leaves out eve
 
 ## Getting started
 
-Follow [the install guide](docs/guide/README.md). It goes from an empty node to a finished scan, with a check at the end of each step, and on to Soundwave if you want the findings in VR.
+Follow [the install guide](https://github.com/albatrossflavour/openvas/blob/main/docs/guide/README.md). It goes from an empty node to a finished scan, with a check at the end of each step, and on to Soundwave if you want the findings in VR.
 
 ## Reference
 
-- Schedules, credentials, the admin password, purge, and reading reports from another tool: [configuration](docs/configuration.md)
-- The first install, checking what the reconciler would change, and removing the stack: [operating](docs/operating.md)
-- Every class and parameter: [REFERENCE.md](REFERENCE.md)
-- What changed in each release: [CHANGELOG.md](CHANGELOG.md)
+- Schedules, credentials, the admin password, purge, and reading reports from another tool: [configuration](https://github.com/albatrossflavour/openvas/blob/main/docs/configuration.md)
+- The first install, checking what the reconciler would change, and removing the stack: [operating](https://github.com/albatrossflavour/openvas/blob/main/docs/operating.md)
+- Every class and parameter: [REFERENCE.md](https://github.com/albatrossflavour/openvas/blob/main/REFERENCE.md)
+- What changed in each release: [CHANGELOG.md](https://github.com/albatrossflavour/openvas/blob/main/CHANGELOG.md)
 
 ## Limitations
 
