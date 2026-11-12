@@ -9,7 +9,7 @@ This brings up Greenbone and creates a scan target and task for each OS family i
 - Step 1 done
 - The module and its dependencies (`puppetlabs-stdlib`, `puppetlabs-docker`, `puppet-systemd`, `puppet-logrotate`, and `puppetlabs-node_encrypt`) in your Puppetfile, and deployed to the scanner's environment
 - Expect the first run to take a while. Images download during the agent run, and gvmd then imports feeds for up to a few hours
-- Optionally, your own admin password in Hiera. See [The admin password](../../README.md#the-admin-password). Without one it's generated on the node
+- Optionally, your own admin password in Hiera. See [The admin password](../configuration.md#the-admin-password). Without one it's generated on the node
 
 ## Do it
 
@@ -23,7 +23,7 @@ include openvas
 sudo puppet agent -t
 ```
 
-[What `include openvas` does](../../README.md#what-include-openvas-does) lists everything this sets up. Leave `openvas::web_bind_address` on its default of localhost until gvmd is up, because the image's default admin password is live until then. See [The first install takes a while](../../README.md#the-first-install-takes-a-while).
+[What `include openvas` does](../../README.md#what-include-openvas-does) lists everything this sets up. Leave `openvas::web_bind_address` on its default of localhost until gvmd is up, because the image's default admin password is live until then. See [The first install takes a while](../operating.md#the-first-install-takes-a-while).
 
 ## Done when
 

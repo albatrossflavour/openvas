@@ -12,9 +12,9 @@ Without credentials Greenbone scans from the outside: open ports, services, and 
 
 ## Do it
 
-Follow [Credentialed scans](../../README.md#credentialed-scans): make a key, put the key and the Windows password in Hiera at a level both the scanner and the scanned nodes read, and include `openvas::target` on the scanned nodes. Then run the agent on the scanned nodes, and on the scanner.
+Follow [Credentialed scans](../configuration.md#credentialed-scans): make a key, put the key and the Windows password in Hiera at a level both the scanner and the scanned nodes read, and include `openvas::target` on the scanned nodes. Then run the agent on the scanned nodes, and on the scanner.
 
-Windows needs more than the account. See [Windows needs more than the account](../../README.md#windows-needs-more-than-the-account).
+Windows needs more than the account. See [Windows needs more than the account](../configuration.md#windows-needs-more-than-the-account).
 
 ## Done when
 
@@ -34,7 +34,7 @@ The real proof comes after the next scan in step 4. In the web UI, under Scans, 
 | You see | Because | Do |
 |---|---|---|
 | `openvas::target: ... is not set, so no scan account is created` | The node can't read the public key or the Windows password | Put them at a Hiera level the scanned nodes read, such as `common.yaml` |
-| The catalogue fails naming a key clash | Another scanner uses the same key name with a different key | See [Sharing the account with another scanner](../../README.md#sharing-the-account-with-another-scanner) |
+| The catalogue fails naming a key clash | Another scanner uses the same key name with a different key | See [Sharing the account with another scanner](../configuration.md#sharing-the-account-with-another-scanner) |
 | SSH login fails on some hosts | TCP 22 blocked from the scanner, or the account not created yet | Check the route, and that the agent has run on that node |
 | SMB login fails, or Windows hosts have very few findings | SMB, remote registry, or `LocalAccountTokenFilterPolicy` | See the Windows section linked above |
 

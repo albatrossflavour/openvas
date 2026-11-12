@@ -2,7 +2,7 @@
 
 This guide takes you from an empty node to Greenbone scanning every node in PuppetDB, and optionally on to the findings showing up in Puppet Enterprise.
 
-The steps link to the [module README](../../README.md) for each setting's detail.
+The steps link to [the module's reference pages](../../README.md#reference) for each setting's detail.
 
 ## Which steps you need
 

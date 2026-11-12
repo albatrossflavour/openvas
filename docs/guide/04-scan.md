@@ -14,7 +14,7 @@ Nothing is scanned until you decide it should be, because a scan crosses the who
 
 For a first scan, start one task by hand in the web UI: Scans, Tasks, then the start button on `Puppet: <family>`.
 
-To scan every family weekly, turn the schedule on. [Scans are off by default](../../README.md#scans-are-off-by-default) has the default times and how to move them.
+To scan every family weekly, turn the schedule on. [Scans are off by default](../configuration.md#scans-are-off-by-default) has the default times and how to move them.
 
 ```yaml
 openvas::scan_schedule_enabled: true
@@ -37,8 +37,8 @@ If you added credentials, check for login failures as step 3 describes.
 | You see | Because | Do |
 |---|---|---|
 | A host with nothing found | The scanner can't reach its `networking.ip` | Fix the route, or list it in `openvas::scan_exclude` |
-| A task disappeared, with its reports | PuppetDB stopped returning every node in that family | See [What can still delete things with purge off](../../README.md#what-can-still-delete-things-with-purge-off) |
-| Hand-made tasks disappeared | `openvas::scan_purge` is on | See [Purge](../../README.md#purge) |
+| A task disappeared, with its reports | PuppetDB stopped returning every node in that family | See [What can still delete things with purge off](../configuration.md#what-can-still-delete-things-with-purge-off) |
+| Hand-made tasks disappeared | `openvas::scan_purge` is on | See [Purge](../configuration.md#purge) |
 
 ## Next
 

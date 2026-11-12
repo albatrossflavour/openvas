@@ -18,7 +18,7 @@ openvas::scan_observer_user: 'reader'
 openvas::scan_observer_password: ENC[PKCS7,...]
 ```
 
-Then run the agent on the scanner. See [Reading reports from another tool](../../README.md#reading-reports-from-another-tool) for what the user can see.
+Then run the agent on the scanner. See [Reading reports from another tool](../configuration.md#reading-reports-from-another-tool) for what the user can see.
 
 ## Done when
 

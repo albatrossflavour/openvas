@@ -19,7 +19,7 @@ Check the network from that node:
 - Every node you want scanned, at its `networking.ip` fact, since that's the address it's scanned at
 - TCP 22 to Linux nodes and TCP 445 to Windows nodes, if you'll add credentials in step 3
 
-Decide when scans may run. A scan is traffic across the whole estate and can set off intrusion detection, which is why the module schedules nothing until you say so. See [Scans are off by default](../../README.md#scans-are-off-by-default).
+Decide when scans may run. A scan is traffic across the whole estate and can set off intrusion detection, which is why the module schedules nothing until you say so. See [Scans are off by default](../configuration.md#scans-are-off-by-default).
 
 ## Done when
 
