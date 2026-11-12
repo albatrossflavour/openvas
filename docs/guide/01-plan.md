@@ -7,7 +7,7 @@ A node too small for Greenbone fails part way through the feed import hours afte
 ## Before you start
 
 - Puppet 8 with PuppetDB. The scan list comes from PuppetDB, so without it nothing is scanned
-- eyaml, for the secrets in steps 2, 3, and 5, and for Soundwave's token
+- eyaml, for the secrets in steps 2, 3, and 5, and for [Soundwave's token](https://github.com/albatrossflavour/soundwave/blob/main/docs/guide/01-pe.md)
 
 ## Do it
 

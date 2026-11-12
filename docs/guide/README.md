@@ -12,7 +12,7 @@ Everyone does steps 1, 2, and 4. Greenbone works on its own, and nothing here ne
 |---|---|
 | Greenbone scanning from the outside | 1, 2, and 4 |
 | Credentialed scans, which find much more | 1, 2, 3, and 4 |
-| The findings in PE Vulnerability Remediation | All five, then the Soundwave guide |
+| The findings in PE Vulnerability Remediation | All five, then [the Soundwave guide](https://github.com/albatrossflavour/soundwave/blob/main/docs/guide/README.md) |
 | Credentials added to a scanner you already run | 3, then a scan from step 4 |
 
 ## The steps
