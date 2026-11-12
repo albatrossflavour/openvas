@@ -2,6 +2,8 @@
 
 Greenbone Community Edition (OpenVAS) as a docker compose stack, with what it scans built from PuppetDB.
 
+To install it, follow [the install guide](docs/guide/README.md), which takes you from an empty node to a finished scan, step by step, and on to Puppet Enterprise if you want the findings there. This README is the reference the guide links to.
+
 ## Two classes, on two kinds of node
 
 | Class | Goes on | Does |
@@ -149,7 +151,7 @@ The module leaves its scan targets alone when PuppetDB is down or returns no hos
 sudo /usr/local/sbin/greenbone-reconcile plan
 ```
 
-This prints what the reconciler would change, and changes nothing. No output means gvmd already matches.
+This prints what the reconciler would change, and changes nothing. `nothing to do` means gvmd already matches.
 
 ## Reading reports from another tool
 
