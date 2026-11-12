@@ -78,6 +78,7 @@ The following parameters are available in the `openvas` class:
 
 * [`install_dir`](#-openvas--install_dir)
 * [`feed_release`](#-openvas--feed_release)
+* [`feed_update_schedule`](#-openvas--feed_update_schedule)
 * [`web_bind_address`](#-openvas--web_bind_address)
 * [`manage_docker`](#-openvas--manage_docker)
 * [`admin_password`](#-openvas--admin_password)
@@ -110,6 +111,17 @@ Data type: `String[1]`
 Vulnerability feed release tracked by the data containers.
 
 Default value: `'24.10'`
+
+##### <a name="-openvas--feed_update_schedule"></a>`feed_update_schedule`
+
+Data type: `Pattern[/\A[^\r\n]+\z/]`
+
+When the feed images are pulled and the data containers refreshed, as a
+systemd `OnCalendar` expression in the node's timezone. A run is skipped
+while a scan is going, and a missed run isn't caught up at boot, so choose a
+time the node is up and not scanning.
+
+Default value: `'*-*-* 05:53:00'`
 
 ##### <a name="-openvas--web_bind_address"></a>`web_bind_address`
 

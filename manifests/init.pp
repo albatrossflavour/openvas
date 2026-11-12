@@ -19,6 +19,11 @@
 #   dots, dashes, underscores, and slashes only, as it ends up in shell commands.
 # @param feed_release
 #   Vulnerability feed release tracked by the data containers.
+# @param feed_update_schedule
+#   When the feed images are pulled and the data containers refreshed, as a
+#   systemd `OnCalendar` expression in the node's timezone. A run is skipped
+#   while a scan is going, and a missed run isn't caught up at boot, so choose a
+#   time the node is up and not scanning.
 # @param web_bind_address
 #   IPv4 host address the web UI binds to, on ports 443 and 9392.
 # @param manage_docker
@@ -63,6 +68,7 @@
 class openvas (
   Pattern[/\A\/[\w.\/-]+\z/]     $install_dir            = '/opt/greenbone-community-container',
   String[1]                      $feed_release           = '24.10',
+  Pattern[/\A[^\r\n]+\z/]          $feed_update_schedule   = '*-*-* 05:53:00',
   Stdlib::IP::Address::V4::Nosubnet $web_bind_address    = '127.0.0.1',
   Boolean                        $manage_docker          = true,
   Optional[Sensitive[String[1]]] $admin_password         = undef,

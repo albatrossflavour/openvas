@@ -21,7 +21,7 @@ On a clean agent, with no Hiera data:
 - Brings up the Greenbone stack, and keeps it up across reboots
 - Sets a generated admin password
 - Creates one scan target and one task per OS family, from the active nodes in PuppetDB
-- Pulls feed updates daily and stack images weekly, and skips either while a scan is running
+- Pulls feed updates daily and stack images weekly, and skips either while a scan is running. `openvas::feed_update_schedule` sets when the feed update runs
 - Schedules no scans. Nothing is scanned until you start a task or turn the schedule on, because a scan crosses the whole estate
 
 The web UI listens on `https://127.0.0.1:443`. Set `openvas::web_bind_address` to an IPv4 address to reach it from elsewhere.
@@ -43,7 +43,7 @@ Follow [the install guide](https://github.com/albatrossflavour/openvas/blob/main
 
 ## Reference
 
-- Schedules, credentials, the admin password, purge, and reading reports from another tool: [configuration](https://github.com/albatrossflavour/openvas/blob/main/docs/configuration.md)
+- Schedules, feed updates, credentials, the admin password, purge, and reading reports from another tool: [configuration](https://github.com/albatrossflavour/openvas/blob/main/docs/configuration.md)
 - The first install, checking what the reconciler would change, and removing the stack: [operating](https://github.com/albatrossflavour/openvas/blob/main/docs/operating.md)
 - Every class and parameter: [REFERENCE.md](https://github.com/albatrossflavour/openvas/blob/main/REFERENCE.md)
 - What changed in each release: [CHANGELOG.md](https://github.com/albatrossflavour/openvas/blob/main/CHANGELOG.md)

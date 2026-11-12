@@ -36,8 +36,21 @@ describe 'openvas' do
         it { is_expected.to contain_systemd__unit_file('greenbone-stack.service').with_content(%r{ExecStart=/usr/bin/docker compose up -d --remove-orphans}) }
 
         it { is_expected.to contain_systemd__timer('greenbone-feed-update.timer').with_active(true) }
+        it { is_expected.to contain_systemd__timer('greenbone-feed-update.timer').with_timer_content(%r{^OnCalendar=\*-\*-\* 05:53:00$}) }
         it { is_expected.to contain_systemd__timer('greenbone-image-update.timer').with_active(true) }
         it { is_expected.to contain_logrotate__rule('greenbone-openvas').with_copytruncate(true) }
+      end
+
+      context 'with the feed refresh moved to working hours' do
+        let(:params) { { 'feed_update_schedule' => 'Mon..Fri *-*-* 10:00:00' } }
+
+        it { is_expected.to contain_systemd__timer('greenbone-feed-update.timer').with_timer_content(%r{^OnCalendar=Mon\.\.Fri \*-\*-\* 10:00:00$}) }
+      end
+
+      context 'with a feed refresh schedule that would add lines to the unit' do
+        let(:params) { { 'feed_update_schedule' => "daily\nExecStartPre=/bin/true" } }
+
+        it { is_expected.to compile.and_raise_error(%r{feed_update_schedule}) }
       end
 
       context 'with manage_docker false' do

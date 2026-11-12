@@ -70,9 +70,9 @@ class openvas::service {
     service_unit    => 'greenbone-feed-update.service',
     active          => true,
     enable          => true,
-    timer_content   => @(EOT),
+    timer_content   => @("EOT"),
       [Timer]
-      OnCalendar=*-*-* 05:53:00
+      OnCalendar=${openvas::feed_update_schedule}
       Unit=greenbone-feed-update.service
 
       [Install]

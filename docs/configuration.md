@@ -23,6 +23,18 @@ Times are UTC, in iCalendar form. The date only sets the first run, so that Wind
 
 `openvas::scan_default_start` (Saturday, 22:00 UTC) is only for OS families with no entry in `scan_schedule_starts`. With the default hash that's none of RedHat, Debian, or Windows, so setting it on its own moves nothing.
 
+## Feed updates
+
+The feed ships as data container images. Every day at 05:53, node time, `greenbone-feed-update.timer` pulls them and recreates the data containers, which copy the new data in. A run is skipped while a scan is going, and a run missed while the node was off isn't caught up at boot, because recopying the feed under a scanner that's still starting interrupts it.
+
+On a node that's off at 05:53, or always scanning then, the feed never updates. Move the run to a time the node is up and idle:
+
+```yaml
+openvas::feed_update_schedule: 'Mon..Fri *-*-* 10:00:00'
+```
+
+The value is a systemd `OnCalendar` expression. `systemctl list-timers greenbone-feed-update.timer` shows the next and last run, and `-` under LAST means it has never fired since systemd started. To refresh now, while no scan is running, run `sudo systemctl start greenbone-feed-update.service`.
+
 ## The admin password
 
 Log in to the web UI as `admin`.
