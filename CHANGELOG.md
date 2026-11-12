@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0
 
 - `openvas::feed_update_schedule` sets when the feed refresh runs, for a node that's off or scanning at the default 05:53
 
