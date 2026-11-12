@@ -1,8 +1,8 @@
 # openvas
 
-Greenbone Community Edition (OpenVAS) scanning every node in your Puppet estate. The module runs Greenbone as a docker compose stack and builds what it scans from PuppetDB, so a new node is scanned without anyone editing Greenbone. With credentials it logs in to check installed packages, which is where most findings come from.
+This module runs [Greenbone Community Edition](https://greenbone.github.io/docs/latest/) (OpenVAS) against every node in your Puppet estate, with the scan list kept in step with PuppetDB, so a new node is scanned without anyone editing Greenbone. Greenbone finds network, TLS, and configuration problems from the outside, and with credentials it logs in to check installed packages too.
 
-It works on its own, with Greenbone's web UI for the reports. To get the findings into Puppet Enterprise Vulnerability Remediation, add [Soundwave](https://github.com/albatrossflavour/soundwave).
+It works on its own, with Greenbone's web UI for the reports. [Soundwave](https://github.com/albatrossflavour/soundwave) pushes its findings, with any other scanner's, into [Vulnerability Remediation](https://help.puppet.com/pe/current/topics/advanced-patching-vulnerability-remediation.htm) in Puppet Enterprise Advanced, where PE shows which ones Puppet can patch.
 
 ## What it installs
 
@@ -11,9 +11,7 @@ It works on its own, with Greenbone's web UI for the reports. To get the finding
 | `openvas` | the scanner | Installs and runs Greenbone, and decides what gets scanned, when, and with which credentials. Everything is a parameter on this class |
 | `openvas::target` | every node you want scanned with credentials | Creates the account the scanner logs in as. Put it in a profile every node gets |
 
-They are separate because Puppet only changes the node it is running on. The scanner's catalogue can't create an account on another node, so each scanned node does that in its own.
-
-You only need `openvas::target` for credentialed scans. Without it the scanner still scans every node, from the outside. It is safe to include everywhere before the credentials are in Hiera: it warns and changes nothing until they are.
+`openvas::target` is only needed for credentialed scans, and is safe to include everywhere before the credentials are in Hiera, because until then it warns and changes nothing.
 
 ### What `include openvas` does
 
@@ -34,15 +32,14 @@ Purge is off by default. Even with it off, a PuppetDB answer that leaves out eve
 
 ## Requirements
 
-- Ubuntu 24.04, where it runs in production. A bare install on AlmaLinux 9 and 10 and Ubuntu 26.04 was tested on 2026-11-09, without running a scan
-- Puppet 8 with PuppetDB. Without PuppetDB the stack still installs, and scan targets are skipped with a warning
-- An agent certificate. Credentials are encrypted to it with `node_encrypt`, so `puppet apply` on a node that has never joined a Puppet server fails
+- Ubuntu 24.04 or 26.04, or AlmaLinux 9 or 10
+- Puppet 8 with PuppetDB, and an agent certificate, since credentials are encrypted to it with `node_encrypt`
 - On EL10, a reboot after the first run. `docker-ce` pulls in `kernel-modules-extra` for the newest kernel, and Docker can't start until that kernel is running
 - 8 CPUs, 16 GB of memory, and at least 200 GB of disk. The stack uses about 75 GB once settled, and a SCAP data rebuild wants about the size of its own database free again
 
 ## Getting started
 
-Follow [the install guide](docs/guide/README.md). It goes from an empty node to a finished scan one step at a time, with a check at the end of each, and on to Soundwave if you want the findings in PE. It also covers adding credentials to a scanner you already run.
+Follow [the install guide](docs/guide/README.md). It goes from an empty node to a finished scan, with a check at the end of each step, and on to Soundwave if you want the findings in VR.
 
 ## Reference
 
@@ -53,7 +50,7 @@ Follow [the install guide](docs/guide/README.md). It goes from an empty node to 
 
 ## Limitations
 
-- Ubuntu 24.04 and 26.04 and AlmaLinux 9 and 10, and IPv4 only for the web UI
+- IPv4 only for the web UI
 - One target and one task per OS family, with the `Full and fast` scan config and the `All IANA assigned TCP` port list
 - Each node is scanned at its primary address, from the `networking.ip` fact. A node whose primary address the scanner can't reach still appears, and comes back with nothing found, so use `openvas::scan_exclude` for those
 - The images track Greenbone's `stable` and `latest` tags and update weekly, so a Greenbone release reaches you without a module release
