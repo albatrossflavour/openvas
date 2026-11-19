@@ -141,7 +141,10 @@ node itself comes from an address in it, so a node that limits where the
 scan account logs in from can name this subnet exactly. The default sits
 outside the ranges Docker hands out early and the common LAN ranges. Change
 it if it collides with a network the scanner has to reach, because the
-bridge would take that traffic.
+bridge would take that traffic. It must not overlap another Docker network.
+It is checked only for being an IPv4 subnet, so an overlap, or a prefix
+with host bits set, fails at `docker compose up` on the node and not when
+the catalogue compiles.
 
 Default value: `'172.29.0.0/24'`
 

@@ -26,7 +26,7 @@ On a clean agent, with no Hiera data:
 
 The web UI listens on `https://127.0.0.1:443`. Set `openvas::web_bind_address` to an IPv4 address to reach it from elsewhere.
 
-The containers sit on a compose network with the fixed subnet `172.29.0.0/24`. Greenbone's scan of the scanner node itself comes from an address in it, so a node that limits where the scan account logs in from can name that subnet. Set `openvas::compose_subnet` to move it if it collides with a network the scanner has to reach.
+The containers sit on a compose network with the fixed subnet `172.29.0.0/24`. Greenbone's scan of the scanner node itself comes from an address in it, so a node that limits where the scan account logs in from can name that subnet. Set `openvas::compose_subnet` to move it if it collides with a network the scanner has to reach. It must not overlap another Docker network. Moving it restarts the stack, and an older stack's network may need moving by hand: see [Moving the compose network](https://github.com/albatrossflavour/openvas/blob/main/docs/operating.md#moving-the-compose-network).
 
 `examples/` has the scanner with and without schedules and credentials, and a scanned node.
 
