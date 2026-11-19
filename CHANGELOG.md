@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.0
+
+- `openvas::compose_subnet` puts the compose network on a fixed subnet, `172.29.0.0/24` by default, so the scanner's scan of itself comes from a known range. An existing stack moves to it on the next agent run if Compose 2.31 or later made its network, as Compose then recreates the network and reconnects the containers. A network made by an older Compose keeps its old subnet until `docker compose down` and `docker compose up -d` in `install_dir`
+- Supports Puppet 9, `puppet-logrotate` 9.x and 10.x, and `puppetlabs-node_encrypt` 4.x, so `pe_status_check` stops reporting the module's dependency caps
+
 ## 0.2.0
 
 - `openvas::feed_update_schedule` sets when the feed refresh runs, for a node that's off or scanning at the default 05:53

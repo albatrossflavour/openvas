@@ -1,4 +1,4 @@
-<%- | String $feed_release, String $web_bind_address | -%>
+<%- | String $feed_release, String $web_bind_address, String $compose_subnet | -%>
 # Managed by Puppet (openvas) - do not edit by hand.
 # Adapted from the Greenbone Community Containers compose file, Copyright Greenbone
 # AG, https://github.com/greenbone/docs, CC-BY-SA-4.0. This file is under the same
@@ -340,6 +340,14 @@ services:
     depends_on:
       - gvmd
       - ospd-openvas
+
+# Not in Greenbone's file. A fixed subnet in place of whatever Docker picks, so
+# the address the scanner's self-scan comes from is known in advance.
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: <%= $compose_subnet %>
 
 volumes:
   gpg_data_vol:

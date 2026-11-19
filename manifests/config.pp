@@ -11,6 +11,7 @@ class openvas::config {
     content => epp('openvas/compose.yaml.epp', {
       'feed_release'     => $openvas::feed_release,
       'web_bind_address' => $openvas::web_bind_address,
+      'compose_subnet'   => $openvas::compose_subnet,
     }),
   }
 }

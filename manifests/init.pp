@@ -26,6 +26,13 @@
 #   time the node is up and not scanning.
 # @param web_bind_address
 #   IPv4 host address the web UI binds to, on ports 443 and 9392.
+# @param compose_subnet
+#   IPv4 subnet of the stack's compose network. Greenbone's scan of the scanner
+#   node itself comes from an address in it, so a node that limits where the
+#   scan account logs in from can name this subnet exactly. The default sits
+#   outside the ranges Docker hands out early and the common LAN ranges. Change
+#   it if it collides with a network the scanner has to reach, because the
+#   bridge would take that traffic.
 # @param manage_docker
 #   Whether this module installs Docker through the `docker` class.
 # @param admin_password
@@ -70,6 +77,7 @@ class openvas (
   String[1]                      $feed_release           = '24.10',
   Pattern[/\A[^\r\n]+\z/]          $feed_update_schedule   = '*-*-* 05:53:00',
   Stdlib::IP::Address::V4::Nosubnet $web_bind_address    = '127.0.0.1',
+  Stdlib::IP::Address::V4::CIDR  $compose_subnet         = '172.29.0.0/24',
   Boolean                        $manage_docker          = true,
   Optional[Sensitive[String[1]]] $admin_password         = undef,
   Optional[Sensitive[String[1]]] $scan_ssh_private_key   = undef,

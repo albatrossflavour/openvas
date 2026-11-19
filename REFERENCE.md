@@ -80,6 +80,7 @@ The following parameters are available in the `openvas` class:
 * [`feed_release`](#-openvas--feed_release)
 * [`feed_update_schedule`](#-openvas--feed_update_schedule)
 * [`web_bind_address`](#-openvas--web_bind_address)
+* [`compose_subnet`](#-openvas--compose_subnet)
 * [`manage_docker`](#-openvas--manage_docker)
 * [`admin_password`](#-openvas--admin_password)
 * [`scan_ssh_private_key`](#-openvas--scan_ssh_private_key)
@@ -130,6 +131,19 @@ Data type: `Stdlib::IP::Address::V4::Nosubnet`
 IPv4 host address the web UI binds to, on ports 443 and 9392.
 
 Default value: `'127.0.0.1'`
+
+##### <a name="-openvas--compose_subnet"></a>`compose_subnet`
+
+Data type: `Stdlib::IP::Address::V4::CIDR`
+
+IPv4 subnet of the stack's compose network. Greenbone's scan of the scanner
+node itself comes from an address in it, so a node that limits where the
+scan account logs in from can name this subnet exactly. The default sits
+outside the ranges Docker hands out early and the common LAN ranges. Change
+it if it collides with a network the scanner has to reach, because the
+bridge would take that traffic.
+
+Default value: `'172.29.0.0/24'`
 
 ##### <a name="-openvas--manage_docker"></a>`manage_docker`
 

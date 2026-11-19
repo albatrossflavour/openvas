@@ -26,6 +26,8 @@ On a clean agent, with no Hiera data:
 
 The web UI listens on `https://127.0.0.1:443`. Set `openvas::web_bind_address` to an IPv4 address to reach it from elsewhere.
 
+The containers sit on a compose network with the fixed subnet `172.29.0.0/24`. Greenbone's scan of the scanner node itself comes from an address in it, so a node that limits where the scan account logs in from can name that subnet. Set `openvas::compose_subnet` to move it if it collides with a network the scanner has to reach.
+
 `examples/` has the scanner with and without schedules and credentials, and a scanned node.
 
 Purge is off by default. Even with it off, a PuppetDB answer that leaves out every node in an OS family deletes that family's task and its reports. See [What can still delete things with purge off](https://github.com/albatrossflavour/openvas/blob/main/docs/configuration.md#what-can-still-delete-things-with-purge-off).
@@ -33,7 +35,7 @@ Purge is off by default. Even with it off, a PuppetDB answer that leaves out eve
 ## Requirements
 
 - Ubuntu 24.04 or 26.04, or AlmaLinux 9 or 10
-- Puppet 8 with PuppetDB, and an agent certificate, since credentials are encrypted to it with `node_encrypt`
+- Puppet 8 or 9 with PuppetDB, and an agent certificate, since credentials are encrypted to it with `node_encrypt`
 - On EL10, a reboot after the first run. `docker-ce` pulls in `kernel-modules-extra` for the newest kernel, and Docker can't start until that kernel is running
 - 8 CPUs, 16 GB of memory, and at least 200 GB of disk. The stack uses about 75 GB once settled, and a SCAP data rebuild wants about the size of its own database free again
 

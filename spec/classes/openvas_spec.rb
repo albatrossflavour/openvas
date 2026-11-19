@@ -39,6 +39,27 @@ describe 'openvas' do
         it { is_expected.to contain_systemd__timer('greenbone-feed-update.timer').with_timer_content(%r{^OnCalendar=\*-\*-\* 05:53:00$}) }
         it { is_expected.to contain_systemd__timer('greenbone-image-update.timer').with_active(true) }
         it { is_expected.to contain_logrotate__rule('greenbone-openvas').with_copytruncate(true) }
+
+        # The self-scan comes from this subnet, so it has to be fixed rather than
+        # whatever Docker picks.
+        it 'puts the compose network on a fixed subnet' do
+          compose_yaml = YAML.safe_load(catalogue.resource('File', compose)[:content], aliases: true)
+          expect(compose_yaml.dig('networks', 'default', 'ipam', 'config')).to eq([{ 'subnet' => '172.29.0.0/24' }])
+        end
+      end
+
+      context 'with the compose network moved' do
+        let(:params) { { 'compose_subnet' => '10.250.3.0/24' } }
+
+        it { is_expected.to contain_file(compose).with_content(%r{^        - subnet: 10\.250\.3\.0/24$}) }
+      end
+
+      ['172.29.0.1', 'fd00::/64', 'nonsense'].each do |subnet|
+        context "with compose_subnet #{subnet}, which is not an IPv4 subnet" do
+          let(:params) { { 'compose_subnet' => subnet } }
+
+          it { is_expected.to compile.and_raise_error(%r{compose_subnet}) }
+        end
       end
 
       context 'with the feed refresh moved to working hours' do
