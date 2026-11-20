@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.0
+
+- `openvas::scan_windows_login` sets the account the SMB credential logs in as, such as a domain account, while SSH keeps `openvas::scan_login`. Unset, nothing changes
+- `openvas::scan_windows_smb_filter`, a PQL condition, splits Windows hosts into `Puppet: Windows`, which gets the SMB credential, and `Puppet: Windows unauthenticated` for the rest, so hosts outside the filter are never offered the login. Unset, there is one Windows target as before
+
 ## 0.3.0
 
 - `openvas::compose_subnet` puts the compose network on a fixed subnet, `172.29.0.0/24` by default, so the scanner's scan of itself comes from a known range. On an existing stack, Compose 2.31 or later should recreate the network on the next agent run, though this hasn't been tested on an existing stack yet. Recreating the network stops every container (some Compose versions recreate them), which interrupts a running scan, so upgrade when no scan is running. A network made by an older Compose keeps its old subnet: see [Moving the compose network](https://github.com/albatrossflavour/openvas/blob/main/docs/operating.md#moving-the-compose-network)

@@ -232,6 +232,109 @@ describe 'openvas' do
           expect(state['users']).to eq([{ 'name' => 'reader', 'role' => 'Observer', 'password' => 'RO' }])
         end
       end
+
+      # Windows members of a domain log in over SMB as a domain account, while
+      # SSH keeps scan_login. A filter splits Windows hosts, so only the
+      # matching ones are ever offered that credential.
+      context 'with scan_windows_login unset' do
+        let(:params) { { 'scan_windows_password' => sensitive('PW') } }
+
+        it 'logs in over SMB as scan_login, as before' do
+          expect(state['credentials']).to eq([{ 'name' => 'Puppet: SMB openvas', 'type' => 'up', 'login' => 'openvas', 'password' => 'PW' }])
+          expect(state['targets'].map { |t| t['name'] }).to eq(['Puppet: Debian', 'Puppet: RedHat', 'Puppet: Windows'])
+        end
+      end
+
+      context 'with scan_windows_login set' do
+        let(:params) do
+          { 'scan_ssh_private_key' => sensitive('KEY'), 'scan_windows_password' => sensitive('PW'),
+            'scan_windows_login' => 'ALBATROSSFLAVOUR\\svc-lab-scan' }
+        end
+
+        it 'logs in over SMB as that account, and over SSH as scan_login' do
+          expect(state['credentials']).to eq([
+                                               { 'name' => 'Puppet: SSH openvas', 'type' => 'usk', 'login' => 'openvas', 'private_key' => 'KEY' },
+                                               { 'name' => 'Puppet: SMB ALBATROSSFLAVOUR\\svc-lab-scan', 'type' => 'up',
+                                                 'login' => 'ALBATROSSFLAVOUR\\svc-lab-scan', 'password' => 'PW' },
+                                             ])
+          expect(state['targets'][2]['smb_credential']).to eq('Puppet: SMB ALBATROSSFLAVOUR\\svc-lab-scan')
+        end
+
+        it 'keeps the password Sensitive in the catalogue until the state file renders it' do
+          is_expected.to contain_class('openvas').with_scan_windows_password(sensitive('PW'))
+        end
+      end
+
+      context 'with scan_windows_smb_filter set' do
+        let(:rows) do
+          [
+            { 'certname' => 'a.example.com', 'facts.networking.ip' => '192.0.2.1', 'facts.os.family' => 'Debian' },
+            { 'certname' => 'm.example.com', 'facts.networking.ip' => '192.0.2.4', 'facts.os.family' => 'windows' },
+            { 'certname' => 'w.example.com', 'facts.networking.ip' => '192.0.2.3', 'facts.os.family' => 'windows' },
+          ]
+        end
+        let(:members) { [{ 'certname' => 'm.example.com' }] }
+        let(:pre_condition) do
+          <<~PP
+            function node_encrypt::secret($data) { $data }
+            function puppetdb_query(String $query) {
+              if $query =~ /ad_domain_role/ { #{members.inspect} } else { #{rows.inspect} }
+            }
+          PP
+        end
+        let(:params) do
+          { 'scan_windows_password' => sensitive('PW'), 'scan_windows_login' => 'ALBATROSSFLAVOUR\\svc-lab-scan',
+            'scan_windows_smb_filter' => 'facts.ad_domain_role = 3', 'scan_schedule_enabled' => true }
+        end
+
+        it 'splits Windows into an authenticated target for the matching hosts and an unauthenticated one for the rest' do
+          windows = state['targets'].select { |t| t['name'].start_with?('Puppet: Windows') }
+          expect(windows).to eq([
+                                  { 'name' => 'Puppet: Windows', 'hosts' => ['192.0.2.4'], 'alive_test' => 'Consider Alive',
+                                    'ssh_credential' => nil, 'ssh_port' => 22, 'smb_credential' => 'Puppet: SMB ALBATROSSFLAVOUR\\svc-lab-scan' },
+                                  { 'name' => 'Puppet: Windows unauthenticated', 'hosts' => ['192.0.2.3'], 'alive_test' => 'Consider Alive',
+                                    'ssh_credential' => nil, 'ssh_port' => 22, 'smb_credential' => nil },
+                                ])
+        end
+
+        it 'gives each Windows target a task on the weekly Windows schedule' do
+          windows = state['tasks'].select { |t| t['name'].start_with?('Puppet: Windows') }
+          expect(windows.map { |t| [t['name'], t['target'], t['schedule']] }).to eq([
+                                                                                      ['Puppet: Windows', 'Puppet: Windows', 'Puppet: weekly Windows'],
+                                                                                      ['Puppet: Windows unauthenticated', 'Puppet: Windows unauthenticated', 'Puppet: weekly Windows'],
+                                                                                    ])
+        end
+
+        it 'asks PuppetDB for the active Windows nodes the filter matches' do
+          expect(state['targets'].map { |t| t['name'] }).to include('Puppet: Windows')
+          is_expected.to compile
+        end
+
+        context 'when no Windows node matches' do
+          let(:members) { [] }
+
+          it 'scans every Windows host unauthenticated, and has no authenticated target' do
+            expect(state['targets'].map { |t| [t['name'], t['smb_credential']] }).to include(['Puppet: Windows unauthenticated', nil])
+            expect(state['targets'].map { |t| t['name'] }).not_to include('Puppet: Windows')
+          end
+        end
+
+        context 'when PuppetDB cannot answer the filter' do
+          let(:members) { {} }
+
+          it 'offers the SMB credential to no host' do
+            expect(state['targets'].map { |t| t['smb_credential'] }.compact).to eq([])
+          end
+        end
+      end
+
+      context 'with scan_windows_smb_filter unset' do
+        let(:params) { { 'scan_windows_password' => sensitive('PW') } }
+
+        it 'keeps one Windows target, as before' do
+          expect(state['targets'].map { |t| t['name'] }.grep(%r{Windows})).to eq(['Puppet: Windows'])
+        end
+      end
     end
   end
 end

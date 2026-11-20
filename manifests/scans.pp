@@ -112,7 +112,10 @@ class openvas::scans {
     $families = $nodes.group_by |$r| { $r['facts.os.family'] }
 
     $ssh_credential = "Puppet: SSH ${login}"
-    $smb_credential = "Puppet: SMB ${login}"
+    # SMB can log in as its own account, such as a domain one, while SSH keeps
+    # scan_login.
+    $smb_login      = $openvas::scan_windows_login.lest || { $login }
+    $smb_credential = "Puppet: SMB ${smb_login}"
     $has_ssh = $openvas::scan_ssh_private_key =~ NotUndef
     $has_smb = $openvas::scan_windows_password =~ NotUndef
 
@@ -139,15 +142,48 @@ class openvas::scans {
       default => [],
     }
 
-    $targets = $families.keys.sort.map |$family| {
-      $windows = $family == 'windows'
+    # With scan_windows_smb_filter set, Windows splits in two: the active
+    # Windows nodes the filter matches get the SMB credential, and the rest are
+    # scanned without it, so a host outside the filter is never offered that
+    # login. A PuppetDB failure here matches nothing, which scans every Windows
+    # host unauthenticated rather than offering the login to all of them.
+    $filter = $openvas::scan_windows_smb_filter
+    if $filter =~ NotUndef {
+      $answer = openvas::puppetdb_rows("inventory[certname] { node_state = \"active\" and facts.os.family = \"windows\" and (${filter}) }")
+      $smb_members = $answer ? {
+        Array   => $answer.filter |$r| { $r =~ Hash and $r['certname'] =~ String[1] }.map |$r| { $r['certname'] },
+        default => [],
+      }
+    } else {
+      $smb_members = []
+    }
+
+    # One target and task per group: one per family, or two for Windows when
+    # the filter splits it.
+    $groups = $families.keys.sort.reduce([]) |$memo, $family| {
+      $label = $labels[$family]
+      if $family == 'windows' and $filter =~ NotUndef {
+        $members = $families[$family].filter |$r| { $r['certname'] in $smb_members }
+        $rest = $families[$family].filter |$r| { !($r['certname'] in $smb_members) }
+        $split = [
+          { 'family' => $family, 'name' => "Puppet: ${label}", 'rows' => $members, 'smb' => true },
+          { 'family' => $family, 'name' => "Puppet: ${label} unauthenticated", 'rows' => $rest, 'smb' => false },
+        ]
+        $memo + $split.filter |$g| { !$g['rows'].empty }
+      } else {
+        $memo + [{ 'family' => $family, 'name' => "Puppet: ${label}", 'rows' => $families[$family], 'smb' => $family == 'windows' }]
+      }
+    }
+
+    $targets = $groups.map |$group| {
+      $windows = $group['family'] == 'windows'
       $target = {
-        'name'           => "Puppet: ${labels[$family]}",
-        'hosts'          => $families[$family].map |$r| { $r['facts.networking.ip'] }.unique.sort,
+        'name'           => $group['name'],
+        'hosts'          => $group['rows'].map |$r| { $r['facts.networking.ip'] }.unique.sort,
         'alive_test'     => 'Consider Alive',
         'ssh_credential' => if !$windows and $has_ssh { $ssh_credential } else { undef },
         'ssh_port'       => 22,
-        'smb_credential' => if $windows and $has_smb { $smb_credential } else { undef },
+        'smb_credential' => if $group['smb'] and $has_smb { $smb_credential } else { undef },
       }
       $target
     }
@@ -158,7 +194,7 @@ class openvas::scans {
       []
     }
     $smb_credentials = if $has_smb {
-      [{ 'name' => $smb_credential, 'type' => 'up', 'login' => $login, 'password' => $openvas::scan_windows_password.unwrap }]
+      [{ 'name' => $smb_credential, 'type' => 'up', 'login' => $smb_login, 'password' => $openvas::scan_windows_password.unwrap }]
     } else {
       []
     }
@@ -171,11 +207,11 @@ class openvas::scans {
       []
     }
 
-    $tasks = $families.keys.sort.map |$family| {
+    $tasks = $groups.map |$group| {
       $task = {
-        'name'       => "Puppet: ${labels[$family]}",
-        'target'     => "Puppet: ${labels[$family]}",
-        'schedule'   => if $openvas::scan_schedule_enabled { "Puppet: weekly ${labels[$family]}" } else { undef },
+        'name'       => $group['name'],
+        'target'     => $group['name'],
+        'schedule'   => if $openvas::scan_schedule_enabled { "Puppet: weekly ${labels[$group['family']]}" } else { undef },
         'max_hosts'  => $openvas::scan_max_hosts,
         'max_checks' => $openvas::scan_max_checks,
         'observers'  => $users.map |$u| { $u['name'] },

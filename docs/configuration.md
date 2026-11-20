@@ -100,6 +100,20 @@ To use an account that already exists, or that something else manages, set `open
 
 The key is added as `openvas-scan` by default, and `openvas::target::ssh_key_name` changes that. When another scanner logs in as the same account with the same key, give both the same key name: the key is declared once and appears once in `authorized_keys`. The same name with a different key fails the catalogue, naming the clash, rather than one of them quietly winning.
 
+### A domain account for Windows
+
+Windows hosts can log in as their own account, such as a domain account that is a local administrator on each member, while Linux keeps `openvas::scan_login`. Set `openvas::scan_windows_login`, and the SMB credential logs in as it with `openvas::scan_windows_password`. Set `openvas::target::manage_user: false` on Windows so no local account is created.
+
+When only some Windows hosts know that account, such as domain members beside workgroup nodes, `openvas::scan_windows_smb_filter` takes a PQL condition on the active Windows nodes. The ones it matches get the `Puppet: Windows` target with the SMB credential, and the rest get `Puppet: Windows unauthenticated`, scanned without it, so they're never offered the login. If PuppetDB can't answer, no host gets the credential. Both tasks run on the weekly Windows schedule.
+
+```yaml
+openvas::scan_windows_login: 'EXAMPLE\svc-scan'
+openvas::scan_windows_smb_filter: 'facts.ad_domain_role = 3'
+openvas::scan_windows_password: ENC[PKCS7,...]
+```
+
+A domain account's network logon isn't filtered the way a local administrator's is, so `LocalAccountTokenFilterPolicy` below isn't needed for it.
+
 ### Windows needs more than the account
 
 Remote registry access, and SMB (445) open from the scanner. A local administrator logging in over the network also gets a filtered token unless `LocalAccountTokenFilterPolicy` is 1 under `HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`. Without it the scan logs in but can't read the registry, so most Windows checks don't run. The module doesn't manage these.

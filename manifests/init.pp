@@ -50,6 +50,16 @@
 #   are scanned without logging in, which finds much less.
 # @param scan_login
 #   Account the scan credentials log in as, on every scanned node.
+# @param scan_windows_login
+#   Account the SMB credential logs in as, such as a domain account
+#   (`ALBATROSSFLAVOUR\svc-lab-scan`). Unset means `scan_login`, as before.
+#   The SSH credential always uses `scan_login`.
+# @param scan_windows_smb_filter
+#   A PQL condition on active Windows nodes, such as
+#   `facts.ad_domain_role = 3`. When set, Windows hosts it matches get their
+#   own target with the SMB credential, and the rest a target scanned without
+#   it (`Puppet: Windows unauthenticated`), so hosts outside it are never
+#   offered the login. Unset means one Windows target, as before.
 # @param scan_purge
 #   Remove every object in gvmd this module did not create, reports included.
 # @param scan_schedule_enabled
@@ -86,6 +96,8 @@ class openvas (
   Optional[Sensitive[String[1]]] $scan_ssh_private_key   = undef,
   Optional[Sensitive[String[1]]] $scan_windows_password  = undef,
   String[1]                      $scan_login             = 'openvas',
+  Optional[String[1]]            $scan_windows_login     = undef,
+  Optional[String[1]]            $scan_windows_smb_filter = undef,
   Boolean                        $scan_purge             = false,
   Boolean                        $scan_schedule_enabled  = false,
   Array[String[1]]               $scan_exclude           = [],

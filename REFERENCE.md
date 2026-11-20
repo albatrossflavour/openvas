@@ -14,7 +14,6 @@ it scans built from PuppetDB.
 A bare include installs Docker, brings up the stack, sets an admin password,
 and creates one target and one task per OS family. Nothing is scanned until
 you start a task or set `scan_schedule_enabled`.
-
 * [`openvas::target`](#openvas--target): Makes a node ready for credentialed scans from the openvas scanner.
 
 #### Private Classes
@@ -38,7 +37,6 @@ need discovery at all.
 
 Run `greenbone-reconcile plan` on the host to see what apply would do,
 including while a scan is running.
-
 * `openvas::service`: Brings the stack up and keeps it up, current, and within its disk.
 
 ### Functions
@@ -86,6 +84,8 @@ The following parameters are available in the `openvas` class:
 * [`scan_ssh_private_key`](#-openvas--scan_ssh_private_key)
 * [`scan_windows_password`](#-openvas--scan_windows_password)
 * [`scan_login`](#-openvas--scan_login)
+* [`scan_windows_login`](#-openvas--scan_windows_login)
+* [`scan_windows_smb_filter`](#-openvas--scan_windows_smb_filter)
 * [`scan_purge`](#-openvas--scan_purge)
 * [`scan_schedule_enabled`](#-openvas--scan_schedule_enabled)
 * [`scan_exclude`](#-openvas--scan_exclude)
@@ -191,6 +191,28 @@ Data type: `String[1]`
 Account the scan credentials log in as, on every scanned node.
 
 Default value: `'openvas'`
+
+##### <a name="-openvas--scan_windows_login"></a>`scan_windows_login`
+
+Data type: `Optional[String[1]]`
+
+Account the SMB credential logs in as, such as a domain account
+(`ALBATROSSFLAVOUR\svc-lab-scan`). Unset means `scan_login`, as before.
+The SSH credential always uses `scan_login`.
+
+Default value: `undef`
+
+##### <a name="-openvas--scan_windows_smb_filter"></a>`scan_windows_smb_filter`
+
+Data type: `Optional[String[1]]`
+
+A PQL condition on active Windows nodes, such as
+`facts.ad_domain_role = 3`. When set, Windows hosts it matches get their
+own target with the SMB credential, and the rest a target scanned without
+it (`Puppet: Windows unauthenticated`), so hosts outside it are never
+offered the login. Unset means one Windows target, as before.
+
+Default value: `undef`
 
 ##### <a name="-openvas--scan_purge"></a>`scan_purge`
 

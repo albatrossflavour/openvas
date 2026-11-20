@@ -45,7 +45,7 @@ Follow [the install guide](https://github.com/albatrossflavour/openvas/blob/main
 
 ## Reference
 
-- Schedules, feed updates, credentials, the admin password, purge, and reading reports from another tool: [configuration](https://github.com/albatrossflavour/openvas/blob/main/docs/configuration.md)
+- Schedules, feed updates, credentials (a domain account for Windows among them), the admin password, purge, and reading reports from another tool: [configuration](https://github.com/albatrossflavour/openvas/blob/main/docs/configuration.md)
 - The first install, checking what the reconciler would change, and removing the stack: [operating](https://github.com/albatrossflavour/openvas/blob/main/docs/operating.md)
 - Every class and parameter: [REFERENCE.md](https://github.com/albatrossflavour/openvas/blob/main/REFERENCE.md)
 - What changed in each release: [CHANGELOG.md](https://github.com/albatrossflavour/openvas/blob/main/CHANGELOG.md)
