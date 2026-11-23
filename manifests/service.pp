@@ -16,6 +16,19 @@ class openvas::service {
     subscribe   => File["${install_dir}/compose.yaml"],
   }
 
+  # nginx reads its certificate at start, so a renewed one needs a restart of
+  # that container alone. Nothing to do while the stack serves its own.
+  if $openvas::config::web_certs {
+    exec { 'greenbone-nginx-restart':
+      command     => 'docker compose restart nginx',
+      cwd         => $install_dir,
+      path        => ['/usr/local/sbin', '/usr/local/bin', '/usr/sbin', '/usr/bin', '/sbin', '/bin'],
+      refreshonly => true,
+      subscribe   => [File["${install_dir}/certs/server.cert.pem"], File["${install_dir}/certs/server.key"]],
+      require     => Exec['greenbone-compose-up'],
+    }
+  }
+
   # Only some services carry a restart policy, so without this most of the stack
   # stays down after a reboot. The one-shot setup services run in dependency
   # order the same way. It also retries a first `compose up` that failed, which

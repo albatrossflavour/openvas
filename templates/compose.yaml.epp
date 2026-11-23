@@ -1,4 +1,4 @@
-<%- | String $feed_release, String $web_bind_address, String $compose_subnet | -%>
+<%- | String $feed_release, String $web_bind_address, String $compose_subnet, String $install_dir, Boolean $web_certs | -%>
 # Managed by Puppet (openvas) - do not edit by hand.
 # Adapted from the Greenbone Community Containers compose file, Copyright Greenbone
 # AG, https://github.com/greenbone/docs, CC-BY-SA-4.0. This file is under the same
@@ -187,7 +187,13 @@ services:
       - <%= $web_bind_address %>:9392:9392
     volumes:
       - nginx_config_vol:/etc/nginx/conf.d:ro
+<% if $web_certs { -%>
+      # Differs from upstream: the node's own certificate and key, placed by Puppet,
+      # instead of the self-signed pair gvm-config makes in nginx_certificates_vol.
+      - <%= $install_dir %>/certs:/etc/nginx/certs:ro
+<% } else { -%>
       - nginx_certificates_vol:/etc/nginx/certs:ro
+<% } -%>
       - gsa_data_vol:/usr/share/nginx/html:ro
     deploy:
       restart_policy:

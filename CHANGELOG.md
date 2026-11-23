@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.5.0
+
+- The web UI serves the node's Puppet agent certificate by default (`openvas::web_certificate` and `openvas::web_key`, both defaulting to the agent's PE CA pair), copied into the install directory and mounted into the nginx container in place of the self-signed pair the setup container makes, with nginx restarted when the pair changes. Unset both to keep the self-signed certificate
+
 ## 0.4.0
 
 - `openvas::scan_windows_login` sets the account the SMB credential logs in as, such as a domain account, while SSH keeps `openvas::scan_login`. Unset, nothing changes

@@ -22,6 +22,12 @@ describe 'openvas' do
         it { is_expected.to contain_file('/opt/greenbone-community-container').with('ensure' => 'directory', 'mode' => '0750') }
         it { is_expected.to contain_package('docker-compose-plugin') }
         it { is_expected.to contain_file(compose).with_content(%r{- 127\.0\.0\.1:443:443$}) }
+        it { is_expected.to contain_file(compose).with_content(%r{- /opt/greenbone-community-container/certs:/etc/nginx/certs:ro$}) }
+        it { is_expected.to contain_file(compose).without_content(%r{nginx_certificates_vol:/etc/nginx/certs}) }
+        it { is_expected.to contain_file('/opt/greenbone-community-container/certs/server.cert.pem').with(source: %r{\Afile:///etc/puppetlabs/puppet/ssl/certs/[a-z0-9.-]+\.pem\z}, mode: '0644') }
+        it { is_expected.to contain_file('/opt/greenbone-community-container/certs/server.key').with(mode: '0600', show_diff: false) }
+        it { is_expected.to contain_file('/opt/greenbone-community-container/certs').with(ensure: 'directory', mode: '0700') }
+        it { is_expected.to contain_exec('greenbone-nginx-restart').with(refreshonly: true).that_subscribes_to('File[/opt/greenbone-community-container/certs/server.key]') }
         it { is_expected.to contain_file(compose).with_content(%r{FEED_RELEASE: "24\.10"}) }
         it { is_expected.to contain_file(compose).with_content(%r{^name: greenbone-community-edition$}) }
         it { is_expected.to contain_file(compose).with_content(%r{CC-BY-SA-4\.0}) }

@@ -26,6 +26,14 @@
 #   time the node is up and not scanning.
 # @param web_bind_address
 #   IPv4 host address the web UI binds to, on ports 443 and 9392.
+# @param web_certificate
+#   PEM certificate the web UI serves on 443. The default is this node's Puppet
+#   agent certificate, issued by the PE CA for the node's certname, so a browser
+#   or tool that trusts the PE CA trusts the UI. With `web_key` unset too, the
+#   stack keeps the self-signed certificate its setup container makes.
+# @param web_key
+#   The private key for `web_certificate`. Copied into the install directory,
+#   root only, and mounted read-only into the nginx container. Set both or neither.
 # @param compose_subnet
 #   IPv4 subnet of the stack's compose network. Greenbone's scan of the scanner
 #   node itself comes from an address in it, so a node that limits where the
@@ -91,6 +99,8 @@ class openvas (
   Pattern[/\A[^\r\n]+\z/]          $feed_update_schedule   = '*-*-* 05:53:00',
   Stdlib::IP::Address::V4::Nosubnet $web_bind_address    = '127.0.0.1',
   Stdlib::IP::Address::V4::CIDR  $compose_subnet         = '172.29.0.0/24',
+  Optional[Stdlib::Absolutepath] $web_certificate        = "/etc/puppetlabs/puppet/ssl/certs/${trusted['certname']}.pem",
+  Optional[Stdlib::Absolutepath] $web_key                = "/etc/puppetlabs/puppet/ssl/private_keys/${trusted['certname']}.pem",
   Boolean                        $manage_docker          = true,
   Optional[Sensitive[String[1]]] $admin_password         = undef,
   Optional[Sensitive[String[1]]] $scan_ssh_private_key   = undef,
