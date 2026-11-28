@@ -10,6 +10,10 @@
 #   reaches the scan scope within one agent run on this host. Nothing changes
 #   while a scan is running; the next run picks it up.
 #
+#   With the schedule and `scan_new_hosts` on, a certname that wasn't in scope
+#   at the last apply also gets a one-off scan of its own, started by that
+#   apply; see reconcile.gmp.py for how it is kept and retired.
+#
 #   Targets use "Consider Alive": discovery by ping drops every node whose
 #   firewall drops ICMP, and scanning an explicit list from PuppetDB doesn't
 #   need discovery at all.
@@ -180,6 +184,11 @@ class openvas::scans {
       $target = {
         'name'           => $group['name'],
         'hosts'          => $group['rows'].map |$r| { $r['facts.networking.ip'] }.unique.sort,
+        # Sorted, so the state file doesn't churn. The reconciler lists these in
+        # the target's comment, which is how it tells a new host from a moved one.
+        'members'        => Hash($group['rows'].sort |$a, $b| { compare($a['certname'], $b['certname']) }.map |$r| {
+          [$r['certname'], $r['facts.networking.ip']]
+        }),
         'alive_test'     => 'Consider Alive',
         'ssh_credential' => if !$windows and $has_ssh { $ssh_credential } else { undef },
         'ssh_port'       => 22,
@@ -220,16 +229,17 @@ class openvas::scans {
     }
 
     $state = {
-      'marker'      => 'managed-by=puppet',
-      'purge'       => $openvas::scan_purge,
-      'scanner'     => 'OpenVAS Default',
-      'scan_config' => 'Full and fast',
-      'port_list'   => 'All IANA assigned TCP',
-      'credentials' => $ssh_credentials + $smb_credentials,
-      'users'       => $users,
-      'schedules'   => $schedules,
-      'targets'     => $targets,
-      'tasks'       => $tasks,
+      'marker'        => 'managed-by=puppet',
+      'purge'         => $openvas::scan_purge,
+      'scanner'       => 'OpenVAS Default',
+      'scan_config'   => 'Full and fast',
+      'port_list'     => 'All IANA assigned TCP',
+      'credentials'   => $ssh_credentials + $smb_credentials,
+      'users'         => $users,
+      'schedules'     => $schedules,
+      'targets'       => $targets,
+      'tasks'         => $tasks,
+      'new_host_scan' => $openvas::scan_schedule_enabled and $openvas::scan_new_hosts,
     }
 
     # gvmd only knows the address it scanned and that address's reverse DNS name,

@@ -16,9 +16,10 @@ MARKER = "managed-by=puppet"
 class FakeGvmd:
     """Answers GMP from canned lists and records every write."""
 
-    def __init__(self, config=True, tasks="", schedules="", fail=None):
+    def __init__(self, config=True, tasks="", schedules="", fail=None, targets=""):
         self.config = config
         self.tasks = tasks
+        self.targets = targets
         self.schedules = schedules
         self.fail = fail
         self.writes = []
@@ -29,6 +30,7 @@ class FakeGvmd:
             return '<r status="500" status_text="broken"/>'
         reads = {
             "get_tasks": self.tasks,
+            "get_targets": self.targets,
             "get_schedules": self.schedules,
             "get_scanners": '<scanner id="s1"><name>OpenVAS Default</name></scanner>',
             "get_configs": '<config id="c1"><name>Full and fast</name></config>' if self.config else "",
@@ -201,3 +203,149 @@ def test_idle_reports_a_running_scan(tmp_path):
     gvmd = FakeGvmd(tasks="<task id='t'><name>a</name><status>Running</status></task>")
     code, _ = run("idle", str(tmp_path / "missing.json"), gvmd)
     assert code == 3
+
+
+# New hosts: a certname no managed task's current target lists gets a one-off.
+
+def new_host_state(tmp_path, members, enabled=True):
+    path = state(tmp_path, hosts=sorted(set(members.values())))
+    doc = json.loads(open(path).read())
+    doc["new_host_scan"] = enabled
+    doc["targets"][0]["members"] = members
+    doc["tasks"][0]["observers"] = ["soundwave"]
+    open(path, "w").write(json.dumps(doc))
+    return path
+
+
+def settled(tmp_path, members, one_off=None):
+    """A gvmd that an apply of members has converged, optionally with a one-off task already there.
+
+    one_off is (certnames, its last report's scan_end, the family task's last report's scan_end).
+    """
+    first = FakeGvmd()
+    run("apply", new_host_state(tmp_path, members), first)
+    create = next(w for w in first.writes if w.startswith("<create_target"))
+    name = re.search(r"<name>(.*?)</name>", create).group(1)
+    comment = re.search(r"<comment>(.*?)</comment>", create).group(1)
+    task_comment = re.search(r"<comment>(.*?)</comment>", next(w for w in first.writes if w.startswith("<create_task"))).group(1)
+    prefs = ('<preferences><preference><scanner_name>max_checks</scanner_name><value>4</value></preference>'
+             '<preference><scanner_name>max_hosts</scanner_name><value>20</value></preference></preferences>')
+    family_end = one_off[2] if one_off else ""
+    report = f'<last_report><report id="r1"><scan_end>{family_end}</scan_end></report></last_report>' if family_end else ""
+    tasks = (f'<task id="t1"><name>Puppet: Debian</name><comment>{task_comment}</comment><status>Done</status>'
+             f'<target id="x1"/><schedule id="sch1"/><observers>soundwave</observers>{prefs}{report}</task>')
+    targets = f'<target id="x1"><name>{name}</name><comment>{comment}</comment></target>'
+    if one_off:
+        certnames, end, _ = one_off
+        tasks += (f'<task id="t2"><name>Puppet: Debian new hosts</name><comment>{MARKER} sha256=x</comment>'
+                  f'<status>Done</status><target id="x2"/><modification_time>2026-11-01T00:00:00Z</modification_time>'
+                  f'<last_report><report id="r2"><scan_end>{end}</scan_end></report></last_report></task>')
+        targets += (f'<target id="x2"><name>Puppet: Debian new hosts [abcd1234]</name>'
+                    f'<comment>{MARKER} sha256=y certnames={",".join(certnames)}</comment></target>')
+    sched = f'<schedule id="sch1"><name>Puppet: weekly Debian</name><comment>{MARKER} sha256=old</comment></schedule>'
+    gvmd = FakeGvmd(tasks=tasks, targets=targets, schedules=sched)
+    # The schedule's digest is whatever the first apply stamped.
+    sched_comment = re.search(r"<comment>(.*?)</comment>", next(w for w in first.writes if w.startswith("<create_schedule"))).group(1)
+    gvmd.schedules = sched.replace(f"{MARKER} sha256=old", sched_comment)
+    return gvmd
+
+
+def verbs(gvmd):
+    return [re.match(r"<(\w+)", w).group(1) for w in gvmd.writes]
+
+
+def test_targets_list_their_certnames(tmp_path):
+    gvmd = FakeGvmd()
+    run("apply", new_host_state(tmp_path, {"b.example.com": "192.0.2.2", "a.example.com": "192.0.2.1"}), gvmd)
+    create = next(w for w in gvmd.writes if w.startswith("<create_target"))
+    assert "certnames=a.example.com,b.example.com</comment>" in create
+
+
+def test_a_first_install_scans_nothing_extra(tmp_path):
+    gvmd = FakeGvmd()
+    run("apply", new_host_state(tmp_path, {"a.example.com": "192.0.2.1"}), gvmd)
+    assert "start_task" not in verbs(gvmd)
+    assert len([v for v in verbs(gvmd) if v == "create_task"]) == 1
+
+
+def test_a_converged_gvmd_with_no_new_hosts_does_nothing(tmp_path):
+    gvmd = settled(tmp_path, {"a.example.com": "192.0.2.1"})
+    code, out = run("check", new_host_state(tmp_path, {"a.example.com": "192.0.2.1"}), gvmd)
+    assert code == 0, out
+
+
+def test_a_new_certname_gets_a_one_off_scan_of_only_itself(tmp_path):
+    gvmd = settled(tmp_path, {"a.example.com": "192.0.2.1"})
+    path = new_host_state(tmp_path, {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"})
+    assert run("check", path, gvmd)[0] == 3
+
+    code, out = run("apply", path, gvmd)
+    assert code == 0, out
+    targets = [w for w in gvmd.writes if w.startswith("<create_target")]
+    one_off = next(w for w in targets if "Puppet: Debian new hosts [" in w)
+    assert "<hosts>192.0.2.2</hosts>" in one_off
+    assert "certnames=b.example.com</comment>" in one_off
+    task = next(w for w in gvmd.writes if w.startswith("<create_task"))
+    assert "<name>Puppet: Debian new hosts</name>" in task
+    assert "<schedule" not in task
+    assert "<observers>soundwave</observers>" in task
+    assert verbs(gvmd)[-1] == "start_task"
+    assert "start task Puppet: Debian new hosts (b.example.com)" in out
+
+
+def test_new_host_scan_off_scans_nothing_extra(tmp_path):
+    gvmd = settled(tmp_path, {"a.example.com": "192.0.2.1"})
+    run("apply", new_host_state(tmp_path, {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}, enabled=False), gvmd)
+    assert "start_task" not in verbs(gvmd)
+    assert not [w for w in gvmd.writes if "new hosts" in w]
+
+
+def test_an_address_change_is_not_a_new_host(tmp_path):
+    gvmd = settled(tmp_path, {"a.example.com": "192.0.2.1"})
+    run("apply", new_host_state(tmp_path, {"a.example.com": "192.0.2.77"}), gvmd)
+    assert "create_target" in verbs(gvmd)
+    assert "start_task" not in verbs(gvmd)
+
+
+def test_a_target_from_before_certnames_were_listed_scans_nothing_extra(tmp_path):
+    gvmd = settled(tmp_path, {"a.example.com": "192.0.2.1"})
+    gvmd.targets = re.sub(r" certnames=[^<]*", "", gvmd.targets)
+    run("apply", new_host_state(tmp_path, {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}), gvmd)
+    assert "start_task" not in verbs(gvmd)
+
+
+def test_a_standing_one_off_is_kept_until_the_weekly_report_is_newer(tmp_path):
+    members = {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}
+    gvmd = settled(tmp_path, members, one_off=(["b.example.com"], "2026-11-26T10:00:00Z", "2026-11-22T10:00:00Z"))
+    code, out = run("check", new_host_state(tmp_path, members), gvmd)
+    assert code == 0, out
+
+
+def test_a_superseded_one_off_goes_with_its_target(tmp_path):
+    members = {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}
+    gvmd = settled(tmp_path, members, one_off=(["b.example.com"], "2026-11-26T10:00:00Z", "2026-11-29T10:00:00Z"))
+    code, out = run("apply", new_host_state(tmp_path, members), gvmd)
+    assert code == 0, out
+    assert '<delete_task task_id="t2" ultimate="1"/>' in gvmd.writes
+    assert '<delete_target target_id="x2" ultimate="1"/>' in gvmd.writes
+    assert verbs(gvmd).index("delete_task") < verbs(gvmd).index("delete_target")
+
+
+def test_more_new_hosts_join_a_standing_one_off_and_it_runs_again(tmp_path):
+    members = {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}
+    gvmd = settled(tmp_path, members, one_off=(["b.example.com"], "2026-11-26T10:00:00Z", "2026-11-22T10:00:00Z"))
+    run("apply", new_host_state(tmp_path, dict(members, **{"c.example.com": "192.0.2.3"})), gvmd)
+    one_off = next(w for w in gvmd.writes if w.startswith("<create_target") and "new hosts" in w)
+    assert "<hosts>192.0.2.2,192.0.2.3</hosts>" in one_off
+    assert any(w.startswith('<modify_task task_id="t2"') for w in gvmd.writes)
+    assert '<start_task task_id="t2"/>' in gvmd.writes
+    assert '<delete_target target_id="x2" ultimate="1"/>' in gvmd.writes
+
+
+def test_a_one_off_is_not_started_while_a_scan_runs(tmp_path):
+    gvmd = settled(tmp_path, {"a.example.com": "192.0.2.1"})
+    gvmd.tasks = gvmd.tasks.replace("<status>Done</status>", "<status>Running</status>")
+    code, out = run("apply", new_host_state(tmp_path, {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}), gvmd)
+    assert code == 0
+    assert "deferred" in out
+    assert gvmd.writes == []

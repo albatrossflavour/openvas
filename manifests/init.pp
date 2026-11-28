@@ -73,6 +73,16 @@
 # @param scan_schedule_enabled
 #   Scan each OS family weekly. When false, targets and tasks exist but nothing
 #   starts on its own.
+# @param scan_new_hosts
+#   With the schedule on, scan a node as soon as it joins the scan scope rather
+#   than waiting for its family's weekly run. The agent run that adds it to a
+#   target also creates and starts a task of its own, `Puppet: <family> new
+#   hosts`, over only the nodes new since the last run, with the family's
+#   credentials and observers. A node is known by its certname, so one whose
+#   address changes isn't new, and one that leaves and comes back is. Like any
+#   other change, it waits while a scan is running and starts on the first run
+#   after it finishes. The task is deleted, with its report, once the family's
+#   own task has a newer report. Ignored while `scan_schedule_enabled` is false.
 # @param scan_exclude
 #   Certnames to leave out of the scan scope.
 # @param scan_schedule_starts
@@ -110,6 +120,7 @@ class openvas (
   Optional[String[1]]            $scan_windows_smb_filter = undef,
   Boolean                        $scan_purge             = false,
   Boolean                        $scan_schedule_enabled  = false,
+  Boolean                        $scan_new_hosts         = true,
   Array[String[1]]               $scan_exclude           = [],
   Hash[String[1], String[1]]     $scan_schedule_starts   = {}, # from data/common.yaml
   String[1]                      $scan_default_start     = '20260912T220000Z',

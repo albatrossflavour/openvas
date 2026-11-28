@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- With the schedule on, a node that joins the scan scope is scanned on the scanner's next agent run instead of waiting for its family's weekly run, through a `Puppet: <family> new hosts` task over only the new nodes. It waits while any scan is running, and is deleted once the family's own task has a newer report. `openvas::scan_new_hosts: false` turns it off
+- Each target now lists its certnames in its comment, so the first agent run after upgrading recreates every managed target once and repoints its task, as it does when a target's hosts change. Upgrade when no scan is running, since nothing changes until it finishes
+
 ## 0.5.0
 
 - The web UI serves the node's Puppet agent certificate by default (`openvas::web_certificate` and `openvas::web_key`, both defaulting to the agent's PE CA pair), copied into the install directory and mounted into the nginx container in place of the self-signed pair the setup container makes, with nginx restarted when the pair changes. Unset both to keep the self-signed certificate

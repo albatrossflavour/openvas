@@ -44,7 +44,8 @@ describe 'openvas' do
           is_expected.to contain_exec('greenbone-admin-password').with('logoutput' => true, 'timeout' => 900)
         end
 
-        it 'has no schedules and no purge, and no min_hosts' do
+        it 'has no schedules and no purge, no min_hosts, and no new-host scans' do
+          expect(state['new_host_scan']).to be(false)
           expect(state['schedules']).to eq([])
           expect(state['purge']).to be(false)
           expect(state).not_to have_key('min_hosts')
@@ -200,12 +201,14 @@ describe 'openvas' do
 
         it 'keeps the Debian target' do
           expect(state['targets'][0]).to eq('name' => 'Puppet: Debian', 'hosts' => ['192.0.2.1'], 'alive_test' => 'Consider Alive',
-                                            'ssh_credential' => 'Puppet: SSH openvas', 'ssh_port' => 22, 'smb_credential' => nil)
+                                            'ssh_credential' => 'Puppet: SSH openvas', 'ssh_port' => 22, 'smb_credential' => nil,
+                                            'members' => { 'a.example.com' => '192.0.2.1' })
         end
 
         it 'keeps the Windows target' do
           expect(state['targets'][2]).to eq('name' => 'Puppet: Windows', 'hosts' => ['192.0.2.3'], 'alive_test' => 'Consider Alive',
-                                            'ssh_credential' => nil, 'ssh_port' => 22, 'smb_credential' => 'Puppet: SMB openvas')
+                                            'ssh_credential' => nil, 'ssh_port' => 22, 'smb_credential' => 'Puppet: SMB openvas',
+                                            'members' => { 'w.example.com' => '192.0.2.3' })
         end
 
         it 'keeps the task' do
@@ -230,6 +233,29 @@ describe 'openvas' do
 
         it 'creates the observer' do
           expect(state['users']).to eq([{ 'name' => 'reader', 'role' => 'Observer', 'password' => 'RO' }])
+        end
+
+        it 'scans new hosts' do
+          expect(state['new_host_scan']).to be(true)
+        end
+
+        context 'with scan_new_hosts off' do
+          let(:params) { super().merge('scan_new_hosts' => false) }
+
+          it { expect(state['new_host_scan']).to be(false) }
+        end
+      end
+
+      context 'with two hosts in a family, answered out of order' do
+        let(:rows) do
+          [
+            { 'certname' => 'z.example.com', 'facts.networking.ip' => '192.0.2.1', 'facts.os.family' => 'Debian' },
+            { 'certname' => 'a.example.com', 'facts.networking.ip' => '192.0.2.9', 'facts.os.family' => 'Debian' },
+          ]
+        end
+
+        it 'lists the members by certname, so the state does not churn' do
+          expect(state['targets'][0]['members'].to_a).to eq([['a.example.com', '192.0.2.9'], ['z.example.com', '192.0.2.1']])
         end
       end
 
@@ -291,9 +317,11 @@ describe 'openvas' do
           windows = state['targets'].select { |t| t['name'].start_with?('Puppet: Windows') }
           expect(windows).to eq([
                                   { 'name' => 'Puppet: Windows', 'hosts' => ['192.0.2.4'], 'alive_test' => 'Consider Alive',
-                                    'ssh_credential' => nil, 'ssh_port' => 22, 'smb_credential' => 'Puppet: SMB ALBATROSSFLAVOUR\\svc-lab-scan' },
+                                    'ssh_credential' => nil, 'ssh_port' => 22, 'smb_credential' => 'Puppet: SMB ALBATROSSFLAVOUR\\svc-lab-scan',
+                                    'members' => { 'm.example.com' => '192.0.2.4' } },
                                   { 'name' => 'Puppet: Windows unauthenticated', 'hosts' => ['192.0.2.3'], 'alive_test' => 'Consider Alive',
-                                    'ssh_credential' => nil, 'ssh_port' => 22, 'smb_credential' => nil },
+                                    'ssh_credential' => nil, 'ssh_port' => 22, 'smb_credential' => nil,
+                                    'members' => { 'w.example.com' => '192.0.2.3' } },
                                 ])
         end
 

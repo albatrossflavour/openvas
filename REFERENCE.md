@@ -31,6 +31,10 @@ check mode finds gvmd out of step, so a node joining or leaving PuppetDB
 reaches the scan scope within one agent run on this host. Nothing changes
 while a scan is running; the next run picks it up.
 
+With the schedule and `scan_new_hosts` on, a certname that wasn't in scope
+at the last apply also gets a one-off scan of its own, started by that
+apply; see reconcile.gmp.py for how it is kept and retired.
+
 Targets use "Consider Alive": discovery by ping drops every node whose
 firewall drops ICMP, and scanning an explicit list from PuppetDB doesn't
 need discovery at all.
@@ -78,6 +82,8 @@ The following parameters are available in the `openvas` class:
 * [`feed_release`](#-openvas--feed_release)
 * [`feed_update_schedule`](#-openvas--feed_update_schedule)
 * [`web_bind_address`](#-openvas--web_bind_address)
+* [`web_certificate`](#-openvas--web_certificate)
+* [`web_key`](#-openvas--web_key)
 * [`compose_subnet`](#-openvas--compose_subnet)
 * [`manage_docker`](#-openvas--manage_docker)
 * [`admin_password`](#-openvas--admin_password)
@@ -88,6 +94,7 @@ The following parameters are available in the `openvas` class:
 * [`scan_windows_smb_filter`](#-openvas--scan_windows_smb_filter)
 * [`scan_purge`](#-openvas--scan_purge)
 * [`scan_schedule_enabled`](#-openvas--scan_schedule_enabled)
+* [`scan_new_hosts`](#-openvas--scan_new_hosts)
 * [`scan_exclude`](#-openvas--scan_exclude)
 * [`scan_schedule_starts`](#-openvas--scan_schedule_starts)
 * [`scan_default_start`](#-openvas--scan_default_start)
@@ -131,6 +138,26 @@ Data type: `Stdlib::IP::Address::V4::Nosubnet`
 IPv4 host address the web UI binds to, on ports 443 and 9392.
 
 Default value: `'127.0.0.1'`
+
+##### <a name="-openvas--web_certificate"></a>`web_certificate`
+
+Data type: `Optional[Stdlib::Absolutepath]`
+
+PEM certificate the web UI serves on 443. The default is this node's Puppet
+agent certificate, issued by the PE CA for the node's certname, so a browser
+or tool that trusts the PE CA trusts the UI. With `web_key` unset too, the
+stack keeps the self-signed certificate its setup container makes.
+
+Default value: `"/etc/puppetlabs/puppet/ssl/certs/${trusted['certname']}.pem"`
+
+##### <a name="-openvas--web_key"></a>`web_key`
+
+Data type: `Optional[Stdlib::Absolutepath]`
+
+The private key for `web_certificate`. Copied into the install directory,
+root only, and mounted read-only into the nginx container. Set both or neither.
+
+Default value: `"/etc/puppetlabs/puppet/ssl/private_keys/${trusted['certname']}.pem"`
 
 ##### <a name="-openvas--compose_subnet"></a>`compose_subnet`
 
@@ -230,6 +257,22 @@ Scan each OS family weekly. When false, targets and tasks exist but nothing
 starts on its own.
 
 Default value: `false`
+
+##### <a name="-openvas--scan_new_hosts"></a>`scan_new_hosts`
+
+Data type: `Boolean`
+
+With the schedule on, scan a node as soon as it joins the scan scope rather
+than waiting for its family's weekly run. The agent run that adds it to a
+target also creates and starts a task of its own, `Puppet: <family> new
+hosts`, over only the nodes new since the last run, with the family's
+credentials and observers. A node is known by its certname, so one whose
+address changes isn't new, and one that leaves and comes back is. Like any
+other change, it waits while a scan is running and starts on the first run
+after it finishes. The task is deleted, with its report, once the family's
+own task has a newer report. Ignored while `scan_schedule_enabled` is false.
+
+Default value: `true`
 
 ##### <a name="-openvas--scan_exclude"></a>`scan_exclude`
 

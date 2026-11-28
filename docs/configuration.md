@@ -23,6 +23,20 @@ Times are UTC, in iCalendar form. The date only sets the first run, so that Wind
 
 `openvas::scan_default_start` (Saturday, 22:00 UTC) is only for OS families with no entry in `scan_schedule_starts`. With the default hash that's none of RedHat, Debian, or Windows, so setting it on its own moves nothing.
 
+### New nodes are scanned straight away
+
+With the schedule on, a node that joins the scan scope is scanned on the scanner's next agent run rather than at its family's weekly run. The run that adds it to a target also creates and starts `Puppet: <family> new hosts`, a task over only the nodes that weren't in scope at the last run, with the family's credentials and observers and no schedule. Each target lists its certnames in its comment, which is how the next run tells what is new. A node is known by its certname, so one whose address changes isn't new, and one that leaves and comes back is. Upgrading, or a first install, scans nothing extra.
+
+It never starts while a scan is running. Like every other change the module makes, it waits, and the first agent run after the scan finishes starts it.
+
+Its report sits beside the weekly ones, so anything reading each task's last report, Soundwave included, sees the new nodes. Once the family's own task has a newer report, which covers them, the next agent run deletes the new-hosts task and its report, so its findings don't outlive a fix. More new nodes before then join it and it runs again.
+
+To keep to the schedule alone:
+
+```yaml
+openvas::scan_new_hosts: false
+```
+
 ## Feed updates
 
 The feed ships as data container images. Every day at 05:53, node time, `greenbone-feed-update.timer` pulls them and recreates the data containers, which copy the new data in. A run is skipped while a scan is going, and a run missed while the node was off isn't caught up at boot, because recopying the feed under a scanner that's still starting interrupts it.
