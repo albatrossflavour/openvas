@@ -3,7 +3,7 @@
 ## Unreleased
 
 - With the schedule on, a node that joins the scan scope is scanned on the scanner's next agent run instead of waiting for its family's weekly run, through a `Puppet: <family> new hosts` task over only the new nodes. It waits while any scan is running, and is deleted once the family's own task has a newer report. `openvas::scan_new_hosts: false` turns it off
-- Each target now lists its certnames in its comment, so the first agent run after upgrading recreates every managed target once and repoints its task, as it does when a target's hosts change. Upgrade when no scan is running, since nothing changes until it finishes
+- Each target now lists its certnames in its comment. The first agent run after upgrading adds them to the existing targets in place, so no target is recreated and every task keeps its reports. While a scan is running that waits, like any other change, for the first run after it finishes
 
 ## 0.5.0
 

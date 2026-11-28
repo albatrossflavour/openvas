@@ -217,10 +217,11 @@ def new_host_state(tmp_path, members, enabled=True):
     return path
 
 
-def settled(tmp_path, members, one_off=None):
+def settled(tmp_path, members, one_off=None, status="Done"):
     """A gvmd that an apply of members has converged, optionally with a one-off task already there.
 
-    one_off is (certnames, its last report's scan_end, the family task's last report's scan_end).
+    one_off is (certnames, its last report's scan_end or "" for none, the family task's last report's
+    scan_end), and status is the one-off's.
     """
     first = FakeGvmd()
     run("apply", new_host_state(tmp_path, members), first)
@@ -237,9 +238,10 @@ def settled(tmp_path, members, one_off=None):
     targets = f'<target id="x1"><name>{name}</name><comment>{comment}</comment></target>'
     if one_off:
         certnames, end, _ = one_off
+        own = f'<last_report><report id="r2"><scan_end>{end}</scan_end></report></last_report>' if end else ""
         tasks += (f'<task id="t2"><name>Puppet: Debian new hosts</name><comment>{MARKER} sha256=x</comment>'
-                  f'<status>Done</status><target id="x2"/><modification_time>2026-11-01T00:00:00Z</modification_time>'
-                  f'<last_report><report id="r2"><scan_end>{end}</scan_end></report></last_report></task>')
+                  f'<status>{status}</status><target id="x2"/><modification_time>2026-11-01T00:00:00Z</modification_time>'
+                  f'{own}</task>')
         targets += (f'<target id="x2"><name>Puppet: Debian new hosts [abcd1234]</name>'
                     f'<comment>{MARKER} sha256=y certnames={",".join(certnames)}</comment></target>')
     sched = f'<schedule id="sch1"><name>Puppet: weekly Debian</name><comment>{MARKER} sha256=old</comment></schedule>'
@@ -312,6 +314,67 @@ def test_a_target_from_before_certnames_were_listed_scans_nothing_extra(tmp_path
     gvmd.targets = re.sub(r" certnames=[^<]*", "", gvmd.targets)
     run("apply", new_host_state(tmp_path, {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}), gvmd)
     assert "start_task" not in verbs(gvmd)
+
+
+def test_upgrading_lists_certnames_in_place_without_recreating_targets(tmp_path):
+    gvmd = settled(tmp_path, {"a.example.com": "192.0.2.1"})
+    gvmd.targets = re.sub(r" certnames=[^<]*", "", gvmd.targets)
+    code, out = run("apply", new_host_state(tmp_path, {"a.example.com": "192.0.2.1"}), gvmd)
+    assert code == 0, out
+    assert verbs(gvmd) == ["modify_target"]
+    assert gvmd.writes[0].startswith('<modify_target target_id="x1"><comment>')
+    assert "certnames=a.example.com</comment></modify_target>" in gvmd.writes[0]
+
+
+def test_the_digest_does_not_change_with_members(tmp_path):
+    """Upgrading keeps every target's name, so nothing is recreated."""
+    plain, listed = FakeGvmd(), FakeGvmd()
+    run("apply", state(tmp_path), plain)
+    run("apply", new_host_state(tmp_path, {"a.example.com": "192.0.2.1"}), listed)
+    def target_name(gvmd):
+        return re.search(r"<name>(.*?)</name>", next(w for w in gvmd.writes if w.startswith("<create_target"))).group(1)
+    assert target_name(plain) == target_name(listed)
+
+
+def test_the_one_off_is_made_before_anything_records_the_host(tmp_path):
+    gvmd = settled(tmp_path, {"a.example.com": "192.0.2.1"})
+    run("apply", new_host_state(tmp_path, {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}), gvmd)
+    order = verbs(gvmd)
+    one_off_task = order.index("create_task")
+    assert one_off_task < order.index("modify_task")
+    assert "new hosts" in gvmd.writes[one_off_task]
+
+
+def test_a_failure_before_the_repoint_leaves_the_host_new(tmp_path):
+    gvmd = settled(tmp_path, {"a.example.com": "192.0.2.1"})
+    gvmd.fail = "create_task"
+    code, _ = run("apply", new_host_state(tmp_path, {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}), gvmd)
+    assert code == 1
+    assert "modify_task" not in verbs(gvmd)
+    assert "modify_target" not in verbs(gvmd)
+
+
+def test_a_one_off_whose_start_failed_is_started_by_the_next_apply(tmp_path):
+    members = {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}
+    first = settled(tmp_path, {"a.example.com": "192.0.2.1"})
+    first.fail = "start_task"
+    assert run("apply", new_host_state(tmp_path, members), first)[0] == 1
+
+    # Everything else went through: the family lists b, and the one-off exists, never run.
+    gvmd = settled(tmp_path, members, one_off=(["b.example.com"], "", "2026-10-25T10:00:00Z"), status="New")
+    path = new_host_state(tmp_path, members)
+    assert run("check", path, gvmd)[0] == 3
+    code, out = run("apply", path, gvmd)
+    assert code == 0, out
+    assert gvmd.writes == ['<start_task task_id="t2"/>']
+
+
+def test_report_times_are_compared_as_times_not_strings(tmp_path):
+    members = {"a.example.com": "192.0.2.1", "b.example.com": "192.0.2.2"}
+    # 10:00 at +11:00 is 23:00 UTC the day before, so the family's 09:00 UTC report is newer.
+    gvmd = settled(tmp_path, members, one_off=(["b.example.com"], "2026-11-26T10:00:00+11:00", "2026-11-26T09:00:00+00:00"))
+    run("apply", new_host_state(tmp_path, members), gvmd)
+    assert '<delete_task task_id="t2" ultimate="1"/>' in gvmd.writes
 
 
 def test_a_standing_one_off_is_kept_until_the_weekly_report_is_newer(tmp_path):

@@ -27,9 +27,11 @@ Times are UTC, in iCalendar form. The date only sets the first run, so that Wind
 
 With the schedule on, a node that joins the scan scope is scanned on the scanner's next agent run rather than at its family's weekly run. The run that adds it to a target also creates and starts `Puppet: <family> new hosts`, a task over only the nodes that weren't in scope at the last run, with the family's credentials and observers and no schedule. Each target lists its certnames in its comment, which is how the next run tells what is new. A node is known by its certname, so one whose address changes isn't new, and one that leaves and comes back is. Upgrading, or a first install, scans nothing extra.
 
-It never starts while a scan is running. Like every other change the module makes, it waits, and the first agent run after the scan finishes starts it.
+It never starts while a scan is running. Like every other change the module makes, it waits, and the first agent run after the scan finishes starts it. The new-hosts task is made before the family's target and task record the node as in scope, so if an agent run fails part-way the node is still new on the next run, and a new-hosts task that never started, such as one whose start failed, is started by the next run.
 
-Its report sits beside the weekly ones, so anything reading each task's last report, Soundwave included, sees the new nodes. Once the family's own task has a newer report, which covers them, the next agent run deletes the new-hosts task and its report, so its findings don't outlive a fix. More new nodes before then join it and it runs again.
+Its report sits beside the weekly ones, so anything reading each task's last report, Soundwave included, sees the new nodes. Once the family's own task has a newer report, which covers them, the next agent run deletes the new-hosts task and its report, so its findings don't outlive a fix. More new nodes before then join it and it runs again. Until that agent run, which waits while any family is still scanning, the new-hosts report is still read, so a finding fixed since it ran can show for a few hours on the day of the weekly scans.
+
+A family whose task was deleted, because PuppetDB answered with none of its nodes for a run, counts as new when it comes back, so all of its nodes get a new-hosts scan.
 
 To keep to the schedule alone:
 

@@ -22,7 +22,8 @@
 # gvmd rules this works around:
 # - A target's hosts and port list can't change while any task references it
 #   ("Target is in use"), so a changed target is created under a new name and
-#   the task is repointed, then the old one deleted.
+#   the task is repointed, then the old one deleted. Its name and comment can
+#   (gvmd's modify_target checks in-use only for the scan settings).
 # - <hosts> needs an <exclude_hosts> sibling.
 # - Deletes without ultimate="1" go to the trashcan, and trashed tasks keep
 #   their targets undeletable, so the trash is emptied before targets go.
@@ -55,9 +56,11 @@ import hashlib
 import json
 import sys
 import xml.etree.ElementTree as ET
+from datetime import datetime
 from xml.sax.saxutils import escape, quoteattr
 
 NEW_HOSTS = " new hosts"
+RESTART = {"New", "Interrupted", "Stopped"}
 BUSY = {"Requested", "Queued", "Running", "Stop Requested", "Delete Requested", "Processing"}
 
 
@@ -110,6 +113,23 @@ def target_of(task):
 
 def last_end(task):
     return task.findtext("last_report/report/scan_end") or ""
+
+
+def when(value):
+    """A gvmd time, which carries the GMP user's offset, or None."""
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")) if value else None
+    except ValueError:
+        return None
+
+
+def superseded(one_off, family):
+    """The family task has a report newer than the one-off's, or than its last change if it has none."""
+    family_end = when(last_end(family)) if family is not None else None
+    if family_end is None:
+        return False
+    ref = when(last_end(one_off)) or when(text(one_off, "modification_time"))
+    return ref is None or family_end > ref
 
 
 def main(mode, state_path):
@@ -219,18 +239,25 @@ def main(mode, state_path):
         """Plan the target t describes unless gvmd has it, and record its id under t's name."""
         # Credentials are referenced by name: they're updated in place and keep
         # their ids, so rotating a secret mustn't swap every target. Members are
-        # part of the definition, so a renamed certname makes a new target whose
-        # comment lists it.
-        definition = dict(t, hosts=sorted(t["hosts"]), port_list=state["port_list"])
+        # left out of the digest and kept in the comment, which gvmd lets change
+        # on a target in use, so listing certnames, or a certname changing at the
+        # same address, updates the target in place. That update is a record of
+        # what is in scope, so it is queued in `recording`, after the one-offs.
+        definition = {k: v for k, v in t.items() if k != "members"}
+        definition.update(hosts=sorted(t["hosts"]), port_list=state["port_list"])
         d = digest(definition)
         name = f"{t['name']} [{d[:8]}]"
-        found = next((e for e in targets.values() if managed(e) and text(e, "name") == name), None)
-        if found is not None:
-            ids["target"][t["name"]] = found.get("id")
-            return
         comment = stamp(d)
         if "members" in t:
             comment += " certnames=" + ",".join(sorted(t["members"]))
+        found = next((e for e in targets.values() if managed(e) and text(e, "name") == name), None)
+        if found is not None:
+            ids["target"][t["name"]] = found.get("id")
+            if "members" in t and listed(found) != set(t["members"]):
+                recording.append((f"update target {name} (certnames)",
+                                  lambda tid=found.get("id"), comment=comment: call(
+                                      f"<modify_target target_id={quoteattr(tid)}><comment>{escape(comment)}</comment></modify_target>")))
+            return
 
         def create(t=t, comment=comment, name=name):
             creds = ""
@@ -247,8 +274,82 @@ def main(mode, state_path):
         plan.append((f"create target {name} ({len(t['hosts'])} hosts)", create))
         ids["target"][t["name"]] = None
 
+    recording = []
     for t in state["targets"]:
         want_target(t)
+
+    # New hosts, compared with the certnames listed by the targets the managed
+    # tasks point at now, read before this apply changes anything. The one-offs
+    # are planned before anything that records a host as in scope (a family
+    # task's repoint, a target's certname comment), so a failure part-way leaves
+    # the host new for the next apply to try again.
+    family_tasks = {text(e, "name"): e for e in tasks.values()
+                    if managed(e) and not text(e, "name").endswith(NEW_HOSTS)}
+    one_offs = {text(e, "name"): e for e in tasks.values() if managed(e) and text(e, "name").endswith(NEW_HOSTS)}
+    previous = set()
+    for e in family_tasks.values():
+        known = listed(targets.get(target_of(e)))
+        if known is None:
+            previous = None
+            break
+        previous |= known
+    if not family_tasks:
+        previous = None
+    enabled = bool(state.get("new_host_scan"))
+    keep_one_offs = set()
+    starts = []
+    for k in state["tasks"]:
+        t = next(x for x in state["targets"] if x["name"] == k["target"])
+        members = t.get("members") or {}
+        name = k["name"] + NEW_HOSTS
+        one_off = one_offs.get(name)
+        family = family_tasks.get(k["name"])
+        new = set(members) - previous if enabled and previous is not None else set()
+        standing = enabled and one_off is not None and not superseded(one_off, family)
+        if not new:
+            if standing:
+                keep_one_offs.add(name)
+                ids["target"][name] = target_of(one_off)
+                # One that never got going, such as a start that failed, starts now.
+                if not last_end(one_off) and text(one_off, "status") in RESTART:
+                    starts.append((f"start task {name}",
+                                   lambda tid=one_off.get("id"): call(f"<start_task task_id={quoteattr(tid)}/>")))
+            continue
+        # Hosts a standing one-off already covers stay in it, so its next report
+        # still has them. One that has been superseded goes first, with its
+        # report, so that report can't be read while the new scan runs.
+        carried = (listed(targets.get(target_of(one_off))) or set()) if standing else set()
+        if one_off is not None and not standing:
+            plan.append((f"delete task {name}",
+                         lambda tid=one_off.get("id"): call(f'<delete_task task_id={quoteattr(tid)} ultimate="1"/>')))
+            one_off = None
+        scope = {c: ip for c, ip in members.items() if c in new or c in carried}
+        want_target(dict(t, name=name, members=scope, hosts=sorted(set(scope.values()))))
+        keep_one_offs.add(name)
+        task = dict(k, name=name, target=name, schedule=None)
+        prefs = {"max_checks": str(task["max_checks"]), "max_hosts": str(task["max_hosts"])}
+        pref_xml = "<preferences>" + "".join(
+            f"<preference><scanner_name>{n}</scanner_name><value>{v}</value></preference>" for n, v in prefs.items()
+        ) + "</preferences>"
+        observers = escape(" ".join(sorted(task.get("observers", []))))
+        comment = escape(stamp(digest(dict(task, scanner=state["scanner"], scan_config=state["scan_config"]))))
+        tid = {"id": one_off.get("id") if one_off is not None else None}
+        if one_off is None:
+            def create(name=name, comment=comment, pref_xml=pref_xml, observers=observers, tid=tid):
+                r = call(f"<create_task><name>{escape(name)}</name><comment>{comment}</comment>"
+                         f"<config id={quoteattr(config_id)}/><target id={quoteattr(ids['target'][name])}/>"
+                         f"<scanner id={quoteattr(scanner_id)}/>"
+                         f"<alterable>1</alterable><observers>{observers}</observers>{pref_xml}</create_task>")
+                tid["id"] = r.get("id")
+            plan.append((f"create task {name}", create))
+        else:
+            def modify(name=name, comment=comment, pref_xml=pref_xml, observers=observers, tid=tid):
+                call(f"<modify_task task_id={quoteattr(tid['id'])}><comment>{comment}</comment>"
+                     f"<target id={quoteattr(ids['target'][name])}/>"
+                     f"<observers>{observers}</observers>{pref_xml}</modify_task>")
+            plan.append((f"update task {name} (target)", modify))
+        starts.append((f"start task {name} ({', '.join(sorted(new))})",
+                       lambda tid=tid: call(f"<start_task task_id={quoteattr(tid['id'])}/>")))
 
     def schedule_id(k):
         return ids["schedule"][k["schedule"]] if k.get("schedule") else None
@@ -300,72 +401,8 @@ def main(mode, state_path):
                      f"<observers>{escape(observers)}</observers>{pref_xml}</modify_task>")
             plan.append((f"update task {k['name']} ({', '.join(changes)})", modify))
 
-    # New hosts, compared with the certnames listed by the targets the managed
-    # tasks point at now. Read before this apply repoints anything.
-    family_tasks = {text(e, "name"): e for e in tasks.values()
-                    if managed(e) and not text(e, "name").endswith(NEW_HOSTS)}
-    one_offs = {text(e, "name"): e for e in tasks.values() if managed(e) and text(e, "name").endswith(NEW_HOSTS)}
-    previous = set()
-    for e in family_tasks.values():
-        known = listed(targets.get(target_of(e)))
-        if known is None:
-            previous = None
-            break
-        previous |= known
-    if not family_tasks:
-        previous = None
-    enabled = bool(state.get("new_host_scan"))
-    keep_one_offs = set()
-    starts = []
-    for k in state["tasks"]:
-        t = next(x for x in state["targets"] if x["name"] == k["target"])
-        members = t.get("members") or {}
-        name = k["name"] + NEW_HOSTS
-        one_off = one_offs.get(name)
-        family = family_tasks.get(k["name"])
-        new = set(members) - previous if enabled and previous is not None else set()
-        standing = (enabled and one_off is not None and
-                    not (family is not None and last_end(family) > (last_end(one_off) or text(one_off, "modification_time"))))
-        if not new:
-            if standing:
-                keep_one_offs.add(name)
-                ids["target"][name] = target_of(one_off)
-            continue
-        # Hosts a standing one-off already covers stay in it, so its next report
-        # still has them. One that has been superseded goes first, with its
-        # report, so that report can't be read while the new scan runs.
-        carried = (listed(targets.get(target_of(one_off))) or set()) if standing else set()
-        if one_off is not None and not standing:
-            plan.append((f"delete task {name}",
-                         lambda tid=one_off.get("id"): call(f'<delete_task task_id={quoteattr(tid)} ultimate="1"/>')))
-            one_off = None
-        scope = {c: ip for c, ip in members.items() if c in new or c in carried}
-        want_target(dict(t, name=name, members=scope, hosts=sorted(set(scope.values()))))
-        keep_one_offs.add(name)
-        task = dict(k, name=name, target=name, schedule=None)
-        prefs = {"max_checks": str(task["max_checks"]), "max_hosts": str(task["max_hosts"])}
-        pref_xml = "<preferences>" + "".join(
-            f"<preference><scanner_name>{n}</scanner_name><value>{v}</value></preference>" for n, v in prefs.items()
-        ) + "</preferences>"
-        observers = escape(" ".join(sorted(task.get("observers", []))))
-        comment = escape(stamp(digest(dict(task, scanner=state["scanner"], scan_config=state["scan_config"]))))
-        tid = {"id": one_off.get("id") if one_off is not None else None}
-        if one_off is None:
-            def create(name=name, comment=comment, pref_xml=pref_xml, observers=observers, tid=tid):
-                r = call(f"<create_task><name>{escape(name)}</name><comment>{comment}</comment>"
-                         f"<config id={quoteattr(config_id)}/><target id={quoteattr(ids['target'][name])}/>"
-                         f"<scanner id={quoteattr(scanner_id)}/>"
-                         f"<alterable>1</alterable><observers>{observers}</observers>{pref_xml}</create_task>")
-                tid["id"] = r.get("id")
-            plan.append((f"create task {name}", create))
-        else:
-            def modify(name=name, comment=comment, pref_xml=pref_xml, observers=observers, tid=tid):
-                call(f"<modify_task task_id={quoteattr(tid['id'])}><comment>{comment}</comment>"
-                     f"<target id={quoteattr(ids['target'][name])}/>"
-                     f"<observers>{observers}</observers>{pref_xml}</modify_task>")
-            plan.append((f"update task {name} (target)", modify))
-        starts.append((f"start task {name} ({', '.join(sorted(new))})",
-                       lambda tid=tid: call(f"<start_task task_id={quoteattr(tid['id'])}/>")))
+    # Recorded only now, once every one-off that needs them exists.
+    plan += recording
 
     # Removal. Managed objects that are no longer desired always go; everything
     # else only when purge is on. Order matters: tasks free their targets and
